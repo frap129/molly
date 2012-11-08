@@ -115,6 +115,7 @@ static inline void tegra_clear_framebuffer(unsigned long to, unsigned long size)
 bool is_tegra_debug_uartport_hs(void);
 int get_tegra_uart_debug_port_id(void);
 int arb_lost_recovery(int scl_gpio, int sda_gpio);
+int __init tegra_register_fuse(void);
 
 #define USE_DEFAULT_START_ADDR 0x0
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
