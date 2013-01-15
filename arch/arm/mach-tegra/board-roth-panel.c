@@ -34,6 +34,7 @@
 #include <asm/mach-types.h>
 
 #include "board.h"
+#include "tegra-board-id.h"
 #include "devices.h"
 #include "gpio-names.h"
 #include "tegra11_host1x_devices.h"
@@ -554,6 +555,40 @@ static int roth_hdmi_hotplug_init(struct device *dev)
 	return 0;
 }
 
+/* Table of electrical characteristics for Roth HDMI.
+ * All modes must be declared here
+ */
+struct tdms_config roth_tdms_config[] = {
+	{ /* 720p / 74.25MHz modes */
+	.pclk = 74250000,
+	.pll0 = 0x01003f10,
+	.pll1 = 0x10300700,
+	.pe_current = 0x00000000,
+	.drive_current = 0x3b3b3b3b,
+	.peak_current = 0x05050505,
+	},
+	{ /* 1080p / 148.5MHz modes */
+	.pclk = 148500000,
+	.pll0 = 0x01003f10,
+	.pll1 = 0x10300700,
+	.pe_current = 0x00000000,
+	.drive_current = 0x3b3b3b3b,
+	.peak_current = 0x05050505,
+	},
+	{ /* 297MHz modes */
+	.pclk = INT_MAX,
+	.pll0 = 0x01003f10,
+	.pll1 = 0x13300700,
+	.pe_current = 0x00000000,
+	.drive_current = 0x3c3c3c3c,
+	.peak_current = 0x07070707,
+	},
+};
+
+struct tegra_hdmi_out roth_hdmi_out = {
+	.tdms_config = roth_tdms_config,
+	.n_tdms_config = 3,
+};
 
 static struct tegra_dc_out roth_disp2_out = {
 	.type		= TEGRA_DC_OUT_HDMI,
@@ -763,6 +798,7 @@ int __init roth_panel_init(int board_id)
 	int err = 0;
 	struct resource __maybe_unused *res;
 	struct platform_device *phost1x;
+	struct board_info board_info;
 
 	sd_settings = roth_sd_settings;
 #ifdef CONFIG_TEGRA_NVMAP
@@ -826,6 +862,12 @@ int __init roth_panel_init(int board_id)
 	}
 
 	roth_disp2_device.dev.parent = &phost1x->dev;
+
+	tegra_get_board_info(&board_info);
+
+	if (board_info.board_id == BOARD_P2560)
+		roth_disp2_out.hdmi_out = &roth_hdmi_out,
+
 	err = platform_device_register(&roth_disp2_device);
 	if (err) {
 		pr_err("disp2 device registration failed\n");
