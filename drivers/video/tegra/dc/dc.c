@@ -2920,6 +2920,9 @@ static int tegra_dc_resume(struct platform_device *ndev)
 		memset(&dc->cmu, 0, sizeof(dc->cmu));
 #endif
 
+	/* To pan the fb on resume */
+	tegra_fb_pan_display_reset(dc->fb);
+
 	if (dc->enabled) {
 		dc->enabled = false;
 		_tegra_dc_set_default_videomode(dc);
