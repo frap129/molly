@@ -1870,6 +1870,12 @@ static bool _tegra_dc_controller_enable(struct tegra_dc *dc)
 	if (dc->out->postpoweron)
 		dc->out->postpoweron();
 
+	/*
+	 * We will need to reinitialize the display the next time panel
+	 * is enabled.
+	 */
+	dc->out->flags &= ~TEGRA_DC_OUT_INITIALIZED_MODE;
+
 	tegra_dc_io_end(dc);
 	return true;
 }
@@ -2106,12 +2112,6 @@ static void _tegra_dc_disable(struct tegra_dc *dc)
 
 	if (dc->out->flags & TEGRA_DC_OUT_ONE_SHOT_MODE)
 		mutex_unlock(&dc->one_shot_lock);
-
-	/*
-	 * We will need to reinitialize the display the next time panel
-	 * is enabled.
-	 */
-	dc->out->flags &= ~TEGRA_DC_OUT_INITIALIZED_MODE;
 }
 
 void tegra_dc_disable(struct tegra_dc *dc)
