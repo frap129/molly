@@ -230,10 +230,13 @@ static int tegra_usb_phy_get_clocks(struct tegra_usb_phy *phy)
 	}
 
 	if(phy->pdata->has_hostpc) {
-		if (phy->inst == 0)
+		if (phy->inst == 0) {
 			clk_set_rate(phy->emc_clk, 100000000);
-		else
+			clk_set_rate(phy->sys_clk, 80000000);
+		} else {
 			clk_set_rate(phy->emc_clk, 12750000);
+			clk_set_rate(phy->sys_clk, 12000000);
+		}
 	}
 	else
 		clk_set_rate(phy->emc_clk, 300000000);
