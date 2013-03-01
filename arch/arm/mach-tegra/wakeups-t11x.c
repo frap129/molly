@@ -106,7 +106,7 @@ static int tegra_wake_event_irq[] = {
 	INT_RTC,				/* wake16 */
 	INT_KBC,				/* wake17 */
 	INT_EXTERNAL_PMU,			/* wake18 */
-	-EINVAL,				/* wake19 */
+	INT_USB,				/* wake19 */
 	-EINVAL,				/* wake20 */
 	-EINVAL,				/* wake21 */
 	-EINVAL,				/* wake22 */
@@ -126,7 +126,7 @@ static int tegra_wake_event_irq[] = {
 	-EAGAIN,				/* wake36 */
 	-EINVAL, /* TEGRA_USB3_VBUS, */		/* wake37 */
 	-EINVAL, /* TEGRA_USB3_ID, */		/* wake38 */
-	INT_USB, /* TEGRA_USB1_UTMIP, */	/* wake39 */
+	-EINVAL, /* TEGRA_USB1_UTMIP, */	/* wake39 */
 	-EINVAL,				/* wake40 */
 	-EINVAL,				/* wake41 */
 	INT_USB2, /* USB1 UHSIC PHY */		/* wake42 */
