@@ -1285,7 +1285,36 @@ static int tegra_set_selfpowered(struct usb_gadget *gadget, int is_on)
 	udc->selfpowered = (is_on != 0);
 	return 0;
 }
-
+static void dump_charger_type(struct tegra_udc *udc, int max_ua)
+{
+	switch (udc->connect_type) {
+	case CONNECT_TYPE_NONE:
+		pr_info("cable/charger is not connected\n");
+		break;
+	case CONNECT_TYPE_SDP:
+		pr_info("detected SDP charger, charging current " \
+						"limit: %d uA\n", max_ua);
+		break;
+	case CONNECT_TYPE_DCP:
+		pr_info("detected DCP charger, charging current " \
+						"limit: %d uA\n", max_ua);
+		break;
+	case CONNECT_TYPE_CDP:
+		pr_info("detected CDP charger, charging current " \
+						"limit: %d uA\n", max_ua);
+		break;
+	case CONNECT_TYPE_NV_CHARGER:
+		pr_info("detected NV charger, charging current " \
+						"limit: %d uA\n", max_ua);
+		break;
+	case CONNECT_TYPE_NON_STANDARD_CHARGER:
+		pr_info("detected non-standard charger, charging" \
+					"current limit %d uA\n", max_ua);
+		break;
+	default:
+		pr_info("Detected USB charging type is unknown\n");
+	}
+}
 static int tegra_usb_set_charging_current(struct tegra_udc *udc)
 {
 	int max_ua;
@@ -1322,7 +1351,7 @@ static int tegra_usb_set_charging_current(struct tegra_udc *udc)
 		pr_debug("detected USB charging type is unknown");
 		max_ua = 0;
 	}
-
+	dump_charger_type(udc, max_ua);
 	return regulator_set_current_limit(udc->vbus_reg, 0, max_ua);
 }
 
@@ -2227,6 +2256,7 @@ static void tegra_udc_set_current_limit_work(struct work_struct *work)
 	/* check udc regulator is available for drawing vbus current*/
 	if (udc->vbus_reg) {
 		/* set the current limit in uA */
+		dump_charger_type(udc, udc->current_limit * 1000);
 		regulator_set_current_limit(
 			udc->vbus_reg, 0,
 			udc->current_limit * 1000);
