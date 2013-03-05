@@ -157,6 +157,8 @@ static struct tegra_sdhci_hw_ops tegra_11x_sdhci_ops = {
 #define NVQUIRK_ENABLE_SDR50_TUNING		BIT(13)
 /* Enable Infinite Erase Timeout*/
 #define NVQUIRK_INFINITE_ERASE_TIMEOUT		BIT(14)
+/* Disable AUTO CMD23 */
+#define NVQUIRK_DISABLE_AUTO_CMD23		BIT(15)
 /* ENAABLE FEEDBACK IO CLOCK */
 #define NVQUIRK_EN_FEEDBACK_CLK			BIT(16)
 
@@ -491,6 +493,11 @@ static void tegra_sdhci_reset_exit(struct sdhci_host *sdhci, u8 mask)
 			SDHCI_VNDR_MISC_CTRL_INFINITE_ERASE_TIMEOUT;
 		}
 		sdhci_writew(sdhci, misc_ctrl, SDHCI_VNDR_MISC_CTRL);
+
+		/* Mask Auto CMD23 if CMD23 is enabled */
+		if ((sdhci->mmc->caps & MMC_CAP_CMD23) &&
+			(soc_data->nvquirks & NVQUIRK_DISABLE_AUTO_CMD23))
+			sdhci->flags &= ~SDHCI_AUTO_CMD23;
 
 		/* Mask the support for any UHS modes if specified */
 		if (plat->uhs_mask & MMC_UHS_MASK_SDR104)
@@ -1767,6 +1774,7 @@ static struct sdhci_tegra_soc_data soc_data_tegra20 = {
 		    NVQUIRK_SET_TRIM_DELAY |
 		    NVQUIRK_ENABLE_DDR50 |
 		    NVQUIRK_INFINITE_ERASE_TIMEOUT |
+		    NVQUIRK_DISABLE_AUTO_CMD23 |
 #endif
 		    NVQUIRK_ENABLE_BLOCK_GAP_DET,
 };
@@ -2069,6 +2077,7 @@ static int __devinit sdhci_tegra_probe(struct platform_device *pdev)
 	tegra_host->hw_ops = &tegra_11x_sdhci_ops;
 	tegra_sdhost_std_freq = TEGRA3_SDHOST_STD_FREQ;
 	host->mmc->caps2 |= MMC_CAP2_HS200;
+	host->mmc->caps |= MMC_CAP_CMD23;
 #endif
 
 	if (plat->nominal_vcore_uV)
