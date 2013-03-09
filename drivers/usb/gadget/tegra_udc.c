@@ -371,8 +371,11 @@ static void dr_controller_run(struct tegra_udc *udc)
 	temp |= USB_MODE_CTRL_MODE_DEVICE;
 	udc_writel(udc, temp, USB_MODE_REG_OFFSET);
 
+	/* set interrupt latency to 125 uS (1 uFrame) */
 	/* Set controller to Run */
 	temp = udc_readl(udc, USB_CMD_REG_OFFSET);
+	temp &= ~USB_CMD_ITC;
+	temp |= USB_CMD_ITC_1_MICRO_FRM;
 	if (can_pullup(udc))
 		temp |= USB_CMD_RUN_STOP;
 	else
@@ -1476,7 +1479,10 @@ static int tegra_pullup(struct usb_gadget *gadget, int is_on)
 			OTG_STATE_B_PERIPHERAL)
 			return 0;
 
+	/* set interrupt latency to 125 uS (1 uFrame) */
 	tmp = udc_readl(udc, USB_CMD_REG_OFFSET);
+	tmp &= ~USB_CMD_ITC;
+	tmp |= USB_CMD_ITC_1_MICRO_FRM;
 	if (can_pullup(udc)) {
 		udc_writel(udc, tmp | USB_CMD_RUN_STOP, USB_CMD_REG_OFFSET);
 		/*
@@ -1491,7 +1497,6 @@ static int tegra_pullup(struct usb_gadget *gadget, int is_on)
 		if (udc->connect_type == CONNECT_TYPE_SDP)
 			schedule_delayed_work(&udc->non_std_charger_work,
 				msecs_to_jiffies(NON_STD_CHARGER_DET_TIME_MS));
-
 	} else {
 		udc_writel(udc, (tmp & ~USB_CMD_RUN_STOP), USB_CMD_REG_OFFSET);
 	}
