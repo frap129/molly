@@ -399,9 +399,13 @@ static int palmas_set_sleep_mode_smps(struct regulator_dev *dev,
 	struct palmas_pmic *pmic = rdev_get_drvdata(dev);
 	int id = rdev_get_id(dev);
 	unsigned int reg;
+	int avoid_update = 0;
 
 	palmas_smps_read(pmic->palmas, palmas_regs_info[id].ctrl_addr, &reg);
 	reg &= ~PALMAS_SMPS12_CTRL_MODE_SLEEP_MASK;
+
+	if (reg == SMPS_CTRL_MODE_OFF)
+		avoid_update = 1;
 
 	switch (mode) {
 	case REGULATOR_MODE_NORMAL:
@@ -420,7 +424,9 @@ static int palmas_set_sleep_mode_smps(struct regulator_dev *dev,
 	default:
 		return -EINVAL;
 	}
-	palmas_smps_write(pmic->palmas, palmas_regs_info[id].ctrl_addr, reg);
+	if (!avoid_update)
+		palmas_smps_write(pmic->palmas,
+			palmas_regs_info[id].ctrl_addr, reg);
 	return 0;
 }
 
