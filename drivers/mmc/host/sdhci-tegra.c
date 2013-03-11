@@ -47,6 +47,7 @@
 #define SDHCI_VNDR_CLK_CTRL_SDMMC_CLK	0x1
 #define SDHCI_VNDR_CLK_CTRL_PADPIPE_CLKEN_OVERRIDE	0x8
 #define SDHCI_VNDR_CLK_CTRL_SPI_MODE_CLKEN_OVERRIDE	0x4
+#define SDHCI_VNDR_CLK_CNTL_INPUT_IO_CLK		0x2
 #define SDHCI_VNDR_CLK_CTRL_BASE_CLK_FREQ_SHIFT	8
 #define SDHCI_VNDR_CLK_CTRL_TAP_VALUE_SHIFT	16
 #define SDHCI_VNDR_CLK_CTRL_TRIM_VALUE_SHIFT	24
@@ -154,6 +155,8 @@ static struct tegra_sdhci_hw_ops tegra_11x_sdhci_ops = {
 #define NVQUIRK_ENABLE_SDR50_TUNING		BIT(13)
 /* Enable Infinite Erase Timeout*/
 #define NVQUIRK_INFINITE_ERASE_TIMEOUT		BIT(14)
+/* ENAABLE FEEDBACK IO CLOCK */
+#define NVQUIRK_EN_FEEDBACK_CLK			BIT(16)
 
 struct sdhci_tegra_soc_data {
 	struct sdhci_pltfm_data *pdata;
@@ -429,6 +432,10 @@ static void tegra_sdhci_reset_exit(struct sdhci_host *sdhci, u8 mask)
 		if (soc_data->nvquirks & NVQUIRK_DISABLE_SPI_MODE_CLKEN) {
 			vendor_ctrl &=
 				~SDHCI_VNDR_CLK_CTRL_SPI_MODE_CLKEN_OVERRIDE;
+		}
+		if (soc_data->nvquirks & NVQUIRK_EN_FEEDBACK_CLK) {
+			vendor_ctrl &=
+				~SDHCI_VNDR_CLK_CNTL_INPUT_IO_CLK;
 		}
 		if (soc_data->nvquirks & NVQUIRK_SET_TAP_DELAY) {
 			if ((tegra_host->tuning_status == TUNING_STATUS_DONE) &&
@@ -1732,6 +1739,7 @@ static struct sdhci_tegra_soc_data soc_data_tegra20 = {
 #if !defined(CONFIG_ARCH_TEGRA_2x_SOC)
 		   NVQUIRK_ENABLE_PADPIPE_CLKEN |
 		   NVQUIRK_DISABLE_SPI_MODE_CLKEN |
+		   NVQUIRK_EN_FEEDBACK_CLK |
 		   NVQUIRK_SET_TAP_DELAY |
 		   NVQUIRK_ENABLE_SDR50_TUNING |
 		   NVQUIRK_ENABLE_SDR50 |
