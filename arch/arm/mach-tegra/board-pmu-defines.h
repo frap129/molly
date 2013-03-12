@@ -22,7 +22,7 @@
 
 #define REGULATOR_MODE_0	0
 #define PALMAS_PDATA_INIT(_name, _minmv, _maxmv, _supply_reg,		\
-	_always_on, _boot_on, _apply_uv, _init_mode)			\
+	_always_on, _boot_on, _apply_uv, _init_mode, _sleep_mode)	\
 	static struct regulator_init_data reg_idata_##_name = {		\
 		.constraints = {					\
 			.name = palmas_rails(_name),			\
@@ -37,6 +37,7 @@
 			.boot_on = _boot_on,				\
 			.apply_uV = _apply_uv,				\
 			.initial_mode = REGULATOR_MODE_##_init_mode,	\
+			.sleep_mode = REGULATOR_MODE_##_sleep_mode,	\
 		},							\
 		.num_consumer_supplies =				\
 			ARRAY_SIZE(palmas_##_name##_supply),		\

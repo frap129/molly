@@ -286,21 +286,21 @@ static struct regulator_consumer_supply palmas_regen2_supply[] = {
 	REGULATOR_SUPPLY("vdd_5v0_sys", NULL),
 };
 
-PALMAS_PDATA_INIT(smps12, 1200,  1500, NULL, 0, 0, 0, NORMAL);
-PALMAS_PDATA_INIT(smps3, 1800,  1800, NULL, 0, 0, 0, NORMAL);
-PALMAS_PDATA_INIT(smps45, 900,  1400, NULL, 1, 1, 0, NORMAL);
-PALMAS_PDATA_INIT(smps457, 900,  1400, NULL, 1, 1, 0, NORMAL);
-PALMAS_PDATA_INIT(smps8, 1050,  1050, NULL, 1, 1, 1, NORMAL);
-PALMAS_PDATA_INIT(smps9, 2800,  2800, NULL, 0, 0, 0, NORMAL);
-PALMAS_PDATA_INIT(smps10, 5000,  5000, NULL, 0, 0, 0, 0);
-PALMAS_PDATA_INIT(ldo2, 2800,  2800, NULL, 0, 0, 1, 0);
-PALMAS_PDATA_INIT(ldo3, 1200,  1200, NULL, 1, 1, 1, 0);
-PALMAS_PDATA_INIT(ldo6, 2850,  2850, NULL, 0, 0, 1, 0);
-PALMAS_PDATA_INIT(ldo8, 900,  900, NULL, 1, 1, 1, 0);
-PALMAS_PDATA_INIT(ldo9, 1800,  3300, NULL, 0, 0, 1, 0);
-PALMAS_PDATA_INIT(ldousb, 3300,  3300, NULL, 0, 0, 1, 0);
-PALMAS_PDATA_INIT(regen1, 3300,  3300, NULL, 0, 0, 0, 0);
-PALMAS_PDATA_INIT(regen2, 5000,  5000, NULL, 0, 0, 0, 0);
+PALMAS_PDATA_INIT(smps12, 1200,  1500, NULL, 0, 0, 0, 0, NORMAL);
+PALMAS_PDATA_INIT(smps3, 1800,  1800, NULL, 0, 0, 0, NORMAL, 0);
+PALMAS_PDATA_INIT(smps45, 900,  1400, NULL, 1, 1, 0, 0, 0);
+PALMAS_PDATA_INIT(smps457, 900,  1400, NULL, 1, 1, 0, 0, 0);
+PALMAS_PDATA_INIT(smps8, 1050,  1050, NULL, 1, 1, 1, NORMAL, 0);
+PALMAS_PDATA_INIT(smps9, 2800,  2800, NULL, 0, 0, 0, NORMAL, 0);
+PALMAS_PDATA_INIT(smps10, 5000,  5000, NULL, 0, 0, 0, 0, 0);
+PALMAS_PDATA_INIT(ldo2, 2800,  2800, NULL, 0, 0, 1, 0, 0);
+PALMAS_PDATA_INIT(ldo3, 1200,  1200, NULL, 1, 1, 1, 0, 0);
+PALMAS_PDATA_INIT(ldo6, 2850,  2850, NULL, 0, 0, 1, 0, 0);
+PALMAS_PDATA_INIT(ldo8, 900,  900, NULL, 1, 1, 1, 0, 0);
+PALMAS_PDATA_INIT(ldo9, 1800,  3300, NULL, 0, 0, 1, 0, 0);
+PALMAS_PDATA_INIT(ldousb, 3300,  3300, NULL, 0, 0, 1, 0, 0);
+PALMAS_PDATA_INIT(regen1, 3300,  3300, NULL, 0, 0, 0, 0, 0);
+PALMAS_PDATA_INIT(regen2, 5000,  5000, NULL, 0, 0, 0, 0, 0);
 
 #define PALMAS_REG_PDATA(_sname) &reg_idata_##_sname
 static struct regulator_init_data *roth_reg_data[PALMAS_NUM_REGS] = {
@@ -342,14 +342,14 @@ static struct regulator_init_data *roth_reg_data[PALMAS_NUM_REGS] = {
 		.vsel = _vsel,						\
 	}
 
-PALMAS_REG_INIT(smps12, 0, 0, 0, 0, 0);
+PALMAS_REG_INIT(smps12, 0, PALMAS_EXT_CONTROL_NSLEEP, 0, 0, 0);
 PALMAS_REG_INIT(smps123, 0, 0, 0, 0, 0);
 PALMAS_REG_INIT(smps3, 0, 0, 0, 0, 0);
 PALMAS_REG_INIT(smps45, 0, PALMAS_EXT_CONTROL_NSLEEP, 0, 0, 0);
 PALMAS_REG_INIT(smps457, 0, PALMAS_EXT_CONTROL_NSLEEP, 0, 0, 0);
 PALMAS_REG_INIT(smps6, 0, 0, 0, 0, 0);
 PALMAS_REG_INIT(smps7, 0, 0, 0, 0, 0);
-PALMAS_REG_INIT(smps8, 0, 0, 0, 0, 0);
+PALMAS_REG_INIT(smps8, 0, PALMAS_EXT_CONTROL_NSLEEP, 0, 0, 0);
 PALMAS_REG_INIT(smps9, 0, 0, 0, 0, 0);
 PALMAS_REG_INIT(smps10, 0, 0, 0, 0, 0);
 PALMAS_REG_INIT(ldo1, 0, 0, 0, 0, 0);
@@ -582,11 +582,6 @@ int __init roth_palmas_regulator_init(void)
 		pmic_platform.reg_data[i] = roth_reg_data[i];
 		pmic_platform.reg_init[i] = roth_reg_init[i];
 	}
-
-	/* Set SMPS12 and 3 to normal mode if it is not there. */
-	reg_idata_smps12.constraints.initial_mode = REGULATOR_MODE_NORMAL;
-	reg_idata_smps3.constraints.initial_mode = REGULATOR_MODE_NORMAL;
-	reg_idata_smps9.constraints.initial_mode = REGULATOR_MODE_NORMAL;
 
 	i2c_register_board_info(4, palma_device,
 			ARRAY_SIZE(palma_device));

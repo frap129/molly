@@ -613,22 +613,22 @@ static struct regulator_consumer_supply palmas_ldousb_supply[] = {
 	REGULATOR_SUPPLY("avdd_hdmi", "tegradc.1"),
 };
 
-PALMAS_PDATA_INIT(smps12, 1350,  1350, tps65090_rails(DCDC3), 0, 0, 0, NORMAL);
-PALMAS_PDATA_INIT(smps3, 1800,  1800, tps65090_rails(DCDC3), 0, 0, 0, NORMAL);
-PALMAS_PDATA_INIT(smps45, 900,  1400, tps65090_rails(DCDC2), 1, 1, 0, NORMAL);
-PALMAS_PDATA_INIT(smps457, 900,  1400, tps65090_rails(DCDC2), 1, 1, 0, NORMAL);
-PALMAS_PDATA_INIT(smps8, 1050,  1050, tps65090_rails(DCDC2), 0, 1, 1, NORMAL);
-PALMAS_PDATA_INIT(smps9, 2800,  2800, tps65090_rails(DCDC2), 1, 0, 0, NORMAL);
-PALMAS_PDATA_INIT(ldo1, 2800,  2800, tps65090_rails(DCDC2), 0, 0, 1, 0);
-PALMAS_PDATA_INIT(ldo2, 2800,  2800, tps65090_rails(DCDC2), 0, 0, 1, 0);
-PALMAS_PDATA_INIT(ldo3, 1200,  1200, palmas_rails(smps3), 0, 0, 1, 0);
-PALMAS_PDATA_INIT(ldo4, 1800,  1800, tps65090_rails(DCDC2), 0, 0, 0, 0);
-PALMAS_PDATA_INIT(ldo6, 2850,  2850, tps65090_rails(DCDC2), 0, 0, 1, 0);
-PALMAS_PDATA_INIT(ldo7, 2800,  2800, tps65090_rails(DCDC2), 0, 0, 1, 0);
-PALMAS_PDATA_INIT(ldo8, 900,  900, tps65090_rails(DCDC3), 1, 1, 1, 0);
-PALMAS_PDATA_INIT(ldo9, 1800,  3300, palmas_rails(smps9), 0, 0, 1, 0);
-PALMAS_PDATA_INIT(ldoln, 3300, 3300, tps65090_rails(DCDC1), 0, 0, 1, 0);
-PALMAS_PDATA_INIT(ldousb, 3300,  3300, tps65090_rails(DCDC1), 0, 0, 1, 0);
+PALMAS_PDATA_INIT(smps12, 1350,  1350, tps65090_rails(DCDC3), 0, 0, 0, NORMAL, 0);
+PALMAS_PDATA_INIT(smps3, 1800,  1800, tps65090_rails(DCDC3), 0, 0, 0, NORMAL, 0);
+PALMAS_PDATA_INIT(smps45, 900,  1400, tps65090_rails(DCDC2), 1, 1, 0, NORMAL, 0);
+PALMAS_PDATA_INIT(smps457, 900,  1400, tps65090_rails(DCDC2), 1, 1, 0, NORMAL, 0);
+PALMAS_PDATA_INIT(smps8, 1050,  1050, tps65090_rails(DCDC2), 0, 1, 1, NORMAL, 0);
+PALMAS_PDATA_INIT(smps9, 2800,  2800, tps65090_rails(DCDC2), 1, 0, 0, NORMAL, 0);
+PALMAS_PDATA_INIT(ldo1, 2800,  2800, tps65090_rails(DCDC2), 0, 0, 1, 0, 0);
+PALMAS_PDATA_INIT(ldo2, 2800,  2800, tps65090_rails(DCDC2), 0, 0, 1, 0, 0);
+PALMAS_PDATA_INIT(ldo3, 1200,  1200, palmas_rails(smps3), 0, 0, 1, 0, 0);
+PALMAS_PDATA_INIT(ldo4, 1800,  1800, tps65090_rails(DCDC2), 0, 0, 0, 0, 0);
+PALMAS_PDATA_INIT(ldo6, 2850,  2850, tps65090_rails(DCDC2), 0, 0, 1, 0, 0);
+PALMAS_PDATA_INIT(ldo7, 2800,  2800, tps65090_rails(DCDC2), 0, 0, 1, 0, 0);
+PALMAS_PDATA_INIT(ldo8, 900,  900, tps65090_rails(DCDC3), 1, 1, 1, 0, 0);
+PALMAS_PDATA_INIT(ldo9, 1800,  3300, palmas_rails(smps9), 0, 0, 1, 0, 0);
+PALMAS_PDATA_INIT(ldoln, 3300, 3300, tps65090_rails(DCDC1), 0, 0, 1, 0, 0);
+PALMAS_PDATA_INIT(ldousb, 3300,  3300, tps65090_rails(DCDC1), 0, 0, 1, 0, 0);
 
 #define PALMAS_REG_PDATA(_sname) &reg_idata_##_sname
 
