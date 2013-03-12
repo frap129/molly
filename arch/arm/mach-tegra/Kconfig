@@ -127,6 +127,7 @@ config ARCH_TEGRA_11x_SOC
 	select TEGRA_ISOMGR_DEBUG
 	select TEGRA_ERRATA_1157520
 	select TEGRA_CORE_EDP_LIMITS
+	select TEGRA_VDD_CORE_OVERRIDE
 	select TEGRA_THERMAL_THROTTLE_EXACT_FREQ
 	select ARM_ERRATA_799270
 	help
@@ -899,4 +900,13 @@ config TEGRA_PLLM_SCALED
 	  granularity of possible memory rate steps. In this case PLLC
 	  provides a backup memory clock while PLLM is re-locking to the
 	  new rate.
+
+config TEGRA_VDD_CORE_OVERRIDE
+	bool "Enable core rail override support"
+	depends on TEGRA_SILICON_PLATFORM
+	default n
+	help
+	  When enabled, core rail can be fixed and locked at specified voltage
+	  within override range, and core modules clocks are capped at rates
+	  safe at override level.
 endif

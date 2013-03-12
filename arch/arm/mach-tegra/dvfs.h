@@ -63,7 +63,8 @@ struct dvfs_rail {
 	int reg_max_millivolts;
 	int nominal_millivolts;
 	int min_millivolts_cold;
-
+	int override_millivolts;
+	int min_override_millivolts;
 	int step;
 	bool jmp_to_zero;
 	bool disabled;
@@ -289,6 +290,13 @@ static inline int tegra_dvfs_rail_get_nominal_millivolts(struct dvfs_rail *rail)
 {
 	if (rail)
 		return rail->nominal_millivolts;
+	return -ENOENT;
+}
+
+static inline int tegra_dvfs_rail_get_override_floor(struct dvfs_rail *rail)
+{
+	if (rail)
+		return rail->min_override_millivolts;
 	return -ENOENT;
 }
 
