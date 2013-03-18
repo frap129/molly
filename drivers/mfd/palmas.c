@@ -528,10 +528,27 @@ static void palmas_clk32k_init(struct palmas *palmas,
 static struct palmas *palmas_dev;
 static void palmas_power_off(void)
 {
+	int ret;
+
 	if (!palmas_dev)
 		return;
 
-	palmas_control_update(palmas_dev, PALMAS_DEV_CTRL, 1, 0);
+	/* THOR Specific requirement: After device shutdowns it should be
+	 * able to detect USB hotplug.
+	 */
+	ret = palmas_update_bits(palmas_dev, PALMAS_PMU_CONTROL_BASE,
+					PALMAS_SWOFF_COLDRST,
+					PALMAS_SWOFF_COLDRST_SW_RST,
+					0x0);
+	if (ret < 0) {
+		dev_err(palmas_dev->dev,
+				"SWOFF_COLDRST update failed: %d\n", ret);
+		return;
+	}
+
+	palmas_control_update(palmas_dev, PALMAS_DEV_CTRL,
+					PALMAS_DEV_CTRL_SW_RST,
+					PALMAS_DEV_CTRL_SW_RST);
 }
 
 static int palmas_read_version_information(struct palmas *palmas)
