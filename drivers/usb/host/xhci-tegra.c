@@ -1662,7 +1662,7 @@ tegra_xhci_padctl_portmap_and_caps(struct tegra_xhci_hcd *tegra)
 
 	reg = readl(tegra->padctl_base + USB2_OTG_PAD0_CTL_0_0);
 	reg &= xusb_padctl->otg_pad0_ctl0;
-	reg |= xusb_padctl->hs_slew;
+	reg |= xusb_padctl->hs_slew | xusb_padctl->ls_rslew;
 	reg &= ~(0x83f << 0);
 	reg |= xusb_padctl->hs_curr_level;
 	writel(reg, tegra->padctl_base + USB2_OTG_PAD0_CTL_0_0);

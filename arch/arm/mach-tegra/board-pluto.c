@@ -1032,6 +1032,7 @@ static void pluto_modem_init(void)
 }
 
 static struct tegra_xusb_pad_data xusb_padctl_data = {
+<<<<<<< HEAD
 	.pad_mux = 0x1,
 	.port_cap = 0x1,
 	.snps_oc_map = 0x1ff,
@@ -1047,6 +1048,7 @@ static struct tegra_xusb_pad_data xusb_padctl_data = {
 	.hsic_pad0_ctl0 = 0xffff00ff,
 	.hsic_pad0_ctl1 = 0xffff00ff,
 	.pmc_value = 0xfffffff0,
+	.ls_rslew = (0x3 << 14),
 };
 
 static void pluto_xusb_init(void)

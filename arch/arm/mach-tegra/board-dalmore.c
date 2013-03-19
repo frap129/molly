@@ -559,6 +559,7 @@ static struct tegra_xusb_pad_data xusb_padctl_data = {
 	.dfe_cntl = 0x002008EE,
 	.otg_pad0_ctl0 = 0xffffffff,
 	.hs_slew = 0xc0,
+	.ls_rslew = (0x3 << 14),
 	.otg_pad0_ctl1 = 0x0,
 	.otg_pad1_ctl0 = 0xffc7ffff,
 	.otg_pad1_ctl1 = 0x7,
