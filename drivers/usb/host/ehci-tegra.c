@@ -295,6 +295,8 @@ static void tegra_ehci_shutdown(struct usb_hcd *hcd)
 		ehci_silence_controller(ehci);
 		spin_unlock_irq(&ehci->lock);
 	}
+	tegra_usb_phy_power_off(tegra->phy);
+	usb_phy_shutdown(get_usb_phy(tegra->phy));
 	mutex_unlock(&tegra->sync_lock);
 }
 
@@ -596,19 +598,24 @@ fail_io:
 static int tegra_ehci_resume(struct platform_device *pdev)
 {
 	struct tegra_ehci_hcd *tegra = platform_get_drvdata(pdev);
-
+	if (tegra_usb_phy_otg_supported(tegra->phy))
+		tegra_usb_enable_vbus(tegra->phy, true);
 	return tegra_usb_phy_power_on(tegra->phy);
 }
 
 static int tegra_ehci_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct tegra_ehci_hcd *tegra = platform_get_drvdata(pdev);
-
+	int err;
 	/* bus suspend could have failed because of remote wakeup resume */
 	if (tegra->bus_suspended_fail)
 		return -EBUSY;
-	else
-		return tegra_usb_phy_power_off(tegra->phy);
+	else {
+		err = tegra_usb_phy_power_off(tegra->phy);
+		if (tegra_usb_phy_otg_supported(tegra->phy))
+			tegra_usb_enable_vbus(tegra->phy, false);
+		return err;
+	}
 }
 #endif
 
