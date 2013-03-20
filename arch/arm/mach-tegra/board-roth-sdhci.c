@@ -37,6 +37,7 @@
 #include "board.h"
 #include "board-roth.h"
 #include "dvfs.h"
+#include "tegra-board-id.h"
 
 #define ROTH_WLAN_PWR	TEGRA_GPIO_PCC5
 #define ROTH_WLAN_RST	TEGRA_GPIO_INVALID
@@ -415,6 +416,13 @@ subsys_initcall_sync(roth_wifi_prepower);
 int __init roth_sdhci_init(void)
 {
 	int nominal_core_mv;
+
+	struct board_info board_info;
+
+	tegra_get_board_info(&board_info);
+
+	if (board_info.board_id == BOARD_P2560)
+		tegra_sdhci_platform_data0.max_clk_limit = 156000000;
 
 	if (tegra_sdhci_platform_data3.uhs_mask & MMC_MASK_HS200)
 		tegra_sdhci_platform_data3.trim_delay = 0;
