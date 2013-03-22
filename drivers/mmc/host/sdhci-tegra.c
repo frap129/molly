@@ -1445,8 +1445,6 @@ static int sdhci_tegra_scan_tap_values(struct sdhci_host *sdhci,
 
 		/* Run frequency tuning */
 		err = sdhci_tegra_run_frequency_tuning(sdhci);
-		if (err == -ENOMEDIUM)
-			return err;
 		if (err && retry) {
 			retry--;
 			continue;
