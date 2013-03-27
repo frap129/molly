@@ -60,8 +60,8 @@ static int powerDown = 1;
 
 unsigned int volume_step[5] = {0, 2, 4, 6, 12};
 
-unsigned int volume_curve[16] = {0, 4, 7, 11, 15, 19, 22, 30,
-								 38, 45, 53, 60, 68, 84, 100, 112};
+unsigned int volume_curve[16] = {0, 2, 4, 7, 7, 7, 11, 11,
+								 11, 11, 11, 11, 11, 11, 11, 11};
 
 /* begin binary data: */
 unsigned char coldpatch_data[] = {/* 10 */
