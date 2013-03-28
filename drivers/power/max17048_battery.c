@@ -22,6 +22,7 @@
 #include <linux/power_supply.h>
 #include <linux/slab.h>
 #include <linux/max17048_battery.h>
+#include <linux/jiffies.h>
 
 #define MAX17048_VCELL		0x02
 #define MAX17048_SOC		0x04
@@ -39,7 +40,7 @@
 #define MAX17048_CMD		0xFF
 #define MAX17048_UNLOCK_VALUE	0x4a57
 #define MAX17048_RESET_VALUE	0x5400
-#define MAX17048_DELAY		1000
+#define MAX17048_DELAY		30*HZ
 #define MAX17048_BATTERY_FULL	100
 #define MAX17048_BATTERY_LOW	15
 #define MAX17048_VERSION_NO	0x11
@@ -66,7 +67,6 @@ struct max17048_chip {
 	/* battery capacity */
 	int capacity_level;
 
-	int lasttime_vcell;
 	int lasttime_soc;
 	int lasttime_status;
 	int use_usb:1;
@@ -259,16 +259,11 @@ static void max17048_work(struct work_struct *work)
 	max17048_get_vcell(chip->client);
 	max17048_get_soc(chip->client);
 
-	if (chip->vcell != chip->lasttime_vcell ||
-		chip->soc != chip->lasttime_soc ||
+	if (chip->soc != chip->lasttime_soc ||
 		chip->status != chip->lasttime_status) {
-
-		chip->lasttime_vcell = chip->vcell;
 		chip->lasttime_soc = chip->soc;
-
 		power_supply_changed(&chip->battery);
 	}
-
 	schedule_delayed_work(&chip->work, MAX17048_DELAY);
 }
 
