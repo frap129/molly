@@ -295,8 +295,8 @@ static void tegra_ehci_shutdown(struct usb_hcd *hcd)
 		ehci_silence_controller(ehci);
 		spin_unlock_irq(&ehci->lock);
 	}
-	tegra_usb_phy_power_off(tegra->phy);
-	usb_phy_shutdown(get_usb_phy(tegra->phy));
+	if (tegra_usb_phy_otg_supported(tegra->phy))
+		tegra_usb_enable_vbus(tegra->phy, false);
 	mutex_unlock(&tegra->sync_lock);
 }
 
