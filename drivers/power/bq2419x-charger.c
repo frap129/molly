@@ -247,8 +247,8 @@ static int bq2419x_charger_init(struct bq2419x_chip *bq2419x)
 {
 	int ret;
 
-	/* Configure Output Current Control to 3A*/
-	ret = regmap_write(bq2419x->regmap, BQ2419X_CHRG_CTRL_REG, 0xC0);
+	/* Configure Output Current Control to 2.4A*/
+	ret = regmap_write(bq2419x->regmap, BQ2419X_CHRG_CTRL_REG, 0x78);
 	if (ret < 0) {
 		dev_err(bq2419x->dev, "CHRG_CTRL_REG write failed %d\n", ret);
 		return ret;
