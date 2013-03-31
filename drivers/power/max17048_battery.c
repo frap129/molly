@@ -570,7 +570,7 @@ static int __devinit max17048_probe(struct i2c_client *client,
 	}
 
 	INIT_DELAYED_WORK_DEFERRABLE(&chip->work, max17048_work);
-	schedule_delayed_work(&chip->work, MAX17048_DELAY);
+	schedule_delayed_work(&chip->work, 0);
 
 	return 0;
 error:
