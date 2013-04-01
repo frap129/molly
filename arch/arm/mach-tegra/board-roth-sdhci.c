@@ -150,7 +150,7 @@ static struct tegra_sdhci_platform_data tegra_sdhci_platform_data0 = {
 	.tap_delay = 0x2,
 	.trim_delay = 0x2,
 	.ddr_clk_limit = 41000000,
-	.max_clk_limit = 136000000,
+	.max_clk_limit = 156000000,
 	.uhs_mask = MMC_UHS_MASK_DDR50,
 };
 
@@ -416,13 +416,6 @@ subsys_initcall_sync(roth_wifi_prepower);
 int __init roth_sdhci_init(void)
 {
 	int nominal_core_mv;
-
-	struct board_info board_info;
-
-	tegra_get_board_info(&board_info);
-
-	if (board_info.board_id == BOARD_P2560)
-		tegra_sdhci_platform_data0.max_clk_limit = 156000000;
 
 	nominal_core_mv =
 		tegra_dvfs_rail_get_nominal_millivolts(tegra_core_rail);
