@@ -45,6 +45,7 @@
 #include <linux/leds_pwm.h>
 #include <linux/i2c/at24.h>
 #include <linux/of_platform.h>
+#include <asm/system_info.h>
 #include <asm/hardware/gic.h>
 #include <mach/hardware.h>
 
@@ -725,6 +726,18 @@ static int __init roth_touch_init(void)
 	return 0;
 }
 
+static int __init roth_revision_init(void)
+{
+	struct board_info board_info;
+	tegra_get_board_info(&board_info);
+	system_rev = 0;
+	if (board_info.board_id == BOARD_P2560)
+		system_rev = P2560;
+	else if (board_info.board_id == BOARD_P2454)
+		system_rev = P2454;
+	return 0;
+}
+
 static void __init tegra_roth_init(void)
 {
 	tegra_clk_init_from_table(roth_clk_init_table);
@@ -764,6 +777,7 @@ static void __init tegra_roth_init(void)
 	roth_sensors_init();
 	roth_soctherm_init();
 	roth_fan_init();
+	roth_revision_init();
 }
 
 static void __init roth_ramconsole_reserve(unsigned long size)
