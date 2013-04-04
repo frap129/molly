@@ -1076,16 +1076,8 @@ static int sdhci_tegra_sd_error_stats(struct sdhci_host *host, u32 int_status)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_tegra *tegra_host = pltfm_host->priv;
-	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
 	struct sdhci_tegra_sd_stats *head;
 
-	if (tegra_host->sd_stat_head == NULL) {
-		tegra_host->sd_stat_head = devm_kzalloc(&pdev->dev, sizeof(
-						struct sdhci_tegra_sd_stats),
-						GFP_KERNEL);
-		if (tegra_host->sd_stat_head == NULL)
-			return -ENOMEM;
-	}
 	head = tegra_host->sd_stat_head;
 	if (int_status & SDHCI_INT_DATA_CRC)
 		head->data_crc_count++;
@@ -1979,7 +1971,14 @@ static int __devinit sdhci_tegra_probe(struct platform_device *pdev)
 	}
 
 	tegra_host->plat = plat;
-	tegra_host->sd_stat_head = NULL;
+	tegra_host->sd_stat_head = devm_kzalloc(&pdev->dev, sizeof(
+						struct sdhci_tegra_sd_stats),
+						GFP_KERNEL);
+	if (tegra_host->sd_stat_head == NULL) {
+		rc = -ENOMEM;
+		goto err_no_plat;
+	}
+
 	tegra_host->soc_data = soc_data;
 
 	pltfm_host->priv = tegra_host;
