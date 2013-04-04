@@ -1416,7 +1416,8 @@ static int utmi_phy_power_off(struct tegra_usb_phy *phy)
 			pr_err("%s: timeout waiting for USB_USBSTS_HCH\n"
 							, __func__);
 		}
-		utmip_setup_pmc_wake_detect(phy);
+		if (!phy->pdata->port_otg)
+			utmip_setup_pmc_wake_detect(phy);
 	}
 
 	if (!phy->hot_plug) {
