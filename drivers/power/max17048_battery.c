@@ -72,6 +72,7 @@ struct max17048_chip {
 	int use_usb:1;
 	int use_ac:1;
 	int shutdown_complete;
+	int charge_complete;
 	struct mutex mutex;
 };
 struct max17048_chip *max17048_data;
@@ -229,9 +230,12 @@ static void max17048_get_soc(struct i2c_client *client)
 	else
 		chip->soc = (uint16_t)soc >> 9;
 
-	if (chip->soc >= MAX17048_BATTERY_FULL) {
-		chip->soc = MAX17048_BATTERY_FULL;
+	if (chip->soc == MAX17048_BATTERY_FULL && chip->charge_complete != 1)
+		chip->soc = MAX17048_BATTERY_FULL-1;
+
+	if (chip->soc >= MAX17048_BATTERY_FULL && chip->charge_complete) {
 		chip->status = POWER_SUPPLY_STATUS_FULL;
+		chip->soc = MAX17048_BATTERY_FULL;
 		chip->capacity_level = POWER_SUPPLY_CAPACITY_LEVEL_FULL;
 		chip->health = POWER_SUPPLY_HEALTH_GOOD;
 	} else if (chip->soc < MAX17048_BATTERY_LOW) {
@@ -275,18 +279,25 @@ void max17048_battery_status(int status,
 
 	max17048_data->ac_online = 0;
 	max17048_data->usb_online = 0;
-
 	if (status == progress) {
 		max17048_data->status = POWER_SUPPLY_STATUS_CHARGING;
 		if (chrg_type == AC)
 			max17048_data->ac_online = 1;
 		else if (chrg_type == USB)
 			max17048_data->usb_online = 1;
-	} else
+	} else if (status == 4) {
+		max17048_data->charge_complete = 1;
+		max17048_data->soc = MAX17048_BATTERY_FULL;
+		max17048_data->status = POWER_SUPPLY_STATUS_FULL;
+		power_supply_changed(&max17048_data->battery);
+		return;
+	} else {
 		max17048_data->status = POWER_SUPPLY_STATUS_DISCHARGING;
+		max17048_data->charge_complete = 0;
+	}
+	power_supply_changed(&max17048_data->battery);
 
 	max17048_data->lasttime_status = max17048_data->status;
-	power_supply_changed(&max17048_data->battery);
 	if (max17048_data->use_usb)
 		power_supply_changed(&max17048_data->usb);
 	if (max17048_data->use_ac)
@@ -534,6 +545,7 @@ static int __devinit max17048_probe(struct i2c_client *client,
 	chip->battery.num_properties	= ARRAY_SIZE(max17048_battery_props);
 	chip->status			= POWER_SUPPLY_STATUS_DISCHARGING;
 	chip->lasttime_status		= POWER_SUPPLY_STATUS_DISCHARGING;
+	chip->charge_complete		= 0;
 
 	ret = power_supply_register(&client->dev, &chip->battery);
 	if (ret) {
