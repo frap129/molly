@@ -769,4 +769,11 @@ struct tegra_hdmi_out {
 	struct tdms_config *tdms_config;
 	int n_tdms_config;
 };
+
+#ifdef CONFIG_PM_SLEEP
+void tegra_log_resume_time(void);
+#else
+#define tegra_log_resume_time()
+#endif
+
 #endif
