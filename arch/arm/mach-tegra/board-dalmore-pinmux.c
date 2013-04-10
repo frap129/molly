@@ -1,7 +1,7 @@
 /*
  * arch/arm/mach-tegra/board-dalmore-pinmux.c
  *
- * Copyright (c) 2012-2013 NVIDIA Corporation
+ * Copyright (c) 2012-2013, NVIDIA CORPORATION.  All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -177,7 +177,7 @@ static __initdata struct tegra_drive_pingroup_config dalmore_drive_pinmux[] = {
 	SET_DRIVE(SDIO3, ENABLE, DISABLE, DIV_1, 22, 36, FASTEST, FASTEST),
 
 	/* SDMMC4 */
-	SET_DRIVE_WITH_TYPE(GMA, ENABLE, DISABLE, DIV_1, 2, 1, FASTEST,
+	SET_DRIVE_WITH_TYPE(GMA, ENABLE, DISABLE, DIV_1, 2, 2, FASTEST,
 								FASTEST, 1),
 };
 
