@@ -577,6 +577,16 @@ wl_cfgp2p_set_p2p_mode(struct wl_priv *wl, u8 mode, u32 channel, u16 listen_ms, 
 		return BCME_NOTFOUND;
 	}
 
+#ifdef P2P_DISCOVERY_WAR
+	if (mode == WL_P2P_DISC_ST_LISTEN || mode == WL_P2P_DISC_ST_SEARCH) {
+		if (!wl->p2p->vif_created) {
+			if (wldev_iovar_setint(wl_to_prmry_ndev(wl), "mpc", 0) < 0) {
+				WL_ERR(("mpc disabling failed\n"));
+			}
+		}
+	}
+#endif
+
 	/* Put the WL driver into P2P Listen Mode to respond to P2P probe reqs */
 	discovery_mode.state = mode;
 	discovery_mode.chspec = wl_ch_host_to_driver(channel);
@@ -1484,6 +1494,14 @@ wl_cfgp2p_listen_complete(struct wl_priv *wl, struct net_device *ndev,
 		netdev = ndev;
 	}
 	CFGP2P_DBG((" Enter\n"));
+
+#ifdef P2P_DISCOVERY_WAR
+	if (!wl->p2p->vif_created) {
+		if (wldev_iovar_setint(netdev, "mpc", 1) < 0) {
+			WL_ERR(("mpc enabling back failed\n"));
+		}
+	}
+#endif
 	if (wl_get_p2p_status(wl, LISTEN_EXPIRED) == 0) {
 		wl_set_p2p_status(wl, LISTEN_EXPIRED);
 		if (timer_pending(&wl->p2p->listen_timer)) {
