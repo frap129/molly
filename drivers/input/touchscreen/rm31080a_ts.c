@@ -37,6 +37,8 @@
 #include <linux/workqueue.h>
 #include <linux/wakelock.h> /* wakelock */
 #include <linux/regulator/consumer.h> /* regulator & voltage */
+#include <linux/pm_qos.h>	/* pm qos for CPU boosting */
+#include <linux/sysfs.h>	/* sysfs for pm qos attributes */
 #include <linux/clk.h> /* clock */
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
@@ -57,6 +59,7 @@
 /*#define ENABLE_CALC_QUEUE_COUNT*/
 #define ENABLE_SLOW_SCAN
 #define ENABLE_SMOOTH_LEVEL
+/*#define ENABLE_SUPPORT_4_7*/ /* for 4.7 inch display  */
 #define ENABLE_SPI_SETTING		0
 /* undef to disable CPU boost while leaving idle mode */
 #define NV_ENABLE_CPU_BOOST
@@ -98,6 +101,13 @@ enum RM_SLOW_SCAN_LEVELS {
 #define RM_SMOOTH_LEVEL_MAX			4
 #endif
 
+#ifdef NV_ENABLE_CPU_BOOST
+/* disable CPU boosting if autoscan mode is disabled */
+#ifndef ENABLE_AUTO_SCAN
+#undef NV_ENABLE_CPU_BOOST
+#endif
+#endif
+
 #define RM_WINTEK_7_CHANNEL_X 30
 
 #define TS_TIMER_PERIOD		HZ
@@ -109,7 +119,7 @@ struct timer_list ts_timer_triggle;
 static void init_ts_timer(void);
 static void ts_timer_triggle_function(unsigned long option);
 
-#define rm_printk(msg...)		printk(msg)
+#define rm_printk(msg...)	do { dev_info(&g_spi->dev, msg); } while (0)
 /*=============================================================================
 	STRUCTURE DECLARATION
 =============================================================================*/
@@ -1827,8 +1837,9 @@ struct rm_tch_ts *rm_tch_input_init(struct device *dev, unsigned int irq,
 	input_dev->hint_events_per_packet = 256U;
 
 	input_set_drvdata(input_dev, ts);
+#ifdef NV_ENABLE_CPU_BOOST
 	input_set_capability(input_dev, EV_MSC, MSC_ACTIVITY);
-
+#endif
 	__set_bit(EV_ABS, input_dev->evbit);
 	__set_bit(ABS_X, input_dev->absbit);
 	__set_bit(ABS_Y, input_dev->absbit);
