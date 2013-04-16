@@ -333,7 +333,7 @@ static struct tegra_system_edp_entry power_edp_default_limits[] = {
 
 /* Constants for EDP calculations */
 static const int temperatures[] = { /* degree celcius (C) */
-	23, 40, 50, 60, 70, 74, 78, 82, 86, 90, 94, 98, 102,
+	23, 40, 50, 60, 68, 74, 78, 82, 86, 90, 94, 98, 102,
 };
 static const int power_cap_levels[] = { /* milliwatts (mW) */
 	500, 1000, 1500, 2000, 2500, 3000, 3500,
@@ -374,7 +374,7 @@ static struct tegra_edp_cpu_leakage_params leakage_params[] = {
 			   {   15618709,   -4576116,   158401,  -1538, },
 			 },
 		 },
-		.volt_temp_cap = { 70, 1240 },
+		.volt_temp_cap = { 68, 1240 },
 	},
 	{
 		.cpu_speedo_id	    = 1, /* A01P+ CPU */
@@ -407,7 +407,7 @@ static struct tegra_edp_cpu_leakage_params leakage_params[] = {
 			 },
 		 },
 		.safety_cap = { 1810500, 1810500, 1606500, 1606500 },
-		.volt_temp_cap = { 70, 1240 },
+		.volt_temp_cap = { 68, 1240 },
 	},
 	{
 		.cpu_speedo_id	    = 2, /* A01P+ fast CPU */
@@ -440,7 +440,7 @@ static struct tegra_edp_cpu_leakage_params leakage_params[] = {
 			 },
 		 },
 		.safety_cap = { 1912500, 1912500, 1912500, 1912500 },
-		.volt_temp_cap = { 70, 1240 },
+		.volt_temp_cap = { 68, 1240 },
 	},
 };
 
@@ -487,7 +487,7 @@ static unsigned int edp_calculate_maxf(
 		voltage_mV = freq_voltage_lut[f].voltage_mV;
 
 		/* Constrain Volt-Temp. Eg. at Tj >= 70C, no VDD_CPU > 1.24V */
-		if (temp_C >= params->volt_temp_cap.temperature &&
+		if (temp_C > params->volt_temp_cap.temperature &&
 		    voltage_mV > params->volt_temp_cap.voltage_limit_mV)
 			continue;
 
