@@ -230,7 +230,7 @@ static void max17048_get_soc(struct i2c_client *client)
 	else
 		chip->soc = (uint16_t)soc >> 9;
 
-	if (chip->soc == MAX17048_BATTERY_FULL && chip->charge_complete != 1)
+	if (chip->soc >= MAX17048_BATTERY_FULL && chip->charge_complete != 1)
 		chip->soc = MAX17048_BATTERY_FULL-1;
 
 	if (chip->soc >= MAX17048_BATTERY_FULL && chip->charge_complete) {
