@@ -1,7 +1,7 @@
 /*
- * arch/arm/mach-tegra/board-macallan-power.c
+ * arch/arm/mach-tegra/board-tegratab-power.c
  *
- * Copyright (C) 2012-2013 NVIDIA Corporation.
+ * Copyright (C) 2012-2013 NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -48,7 +48,7 @@
 #include "board.h"
 #include "gpio-names.h"
 #include "board-common.h"
-#include "board-macallan.h"
+#include "board-tegratab.h"
 #include "tegra_cl_dvfs.h"
 #include "devices.h"
 #include "tegra11_soctherm.h"
@@ -58,35 +58,91 @@
 #define PMC_CTRL_INTR_LOW	(1 << 17)
 
 /* BQ2419X VBUS regulator */
-static struct regulator_consumer_supply bq2419x_vbus_supply[] = {
+static struct regulator_consumer_supply tegratab_bq2419x_vbus_supply[] = {
 	REGULATOR_SUPPLY("usb_vbus", "tegra-ehci.0"),
 };
 
-static struct bq2419x_vbus_platform_data bq2419x_vbus_pdata = {
+static struct regulator_consumer_supply tegratab_bq2419x_batt_supply[] = {
+	REGULATOR_SUPPLY("usb_bat_chg", "tegra-udc.0"),
+};
+
+static struct bq2419x_vbus_platform_data tegratab_bq2419x_vbus_pdata = {
 	.gpio_otg_iusb = TEGRA_GPIO_PI4,
-	.num_consumer_supplies = ARRAY_SIZE(bq2419x_vbus_supply),
-	.consumer_supplies = bq2419x_vbus_supply,
+	.num_consumer_supplies = ARRAY_SIZE(tegratab_bq2419x_vbus_supply),
+	.consumer_supplies = tegratab_bq2419x_vbus_supply,
 };
 
-struct bq2419x_platform_data macallan_bq2419x_pdata = {
-	.vbus_pdata = &bq2419x_vbus_pdata,
+struct bq2419x_charger_platform_data tegratab_bq2419x_charger_pdata = {
+	.use_usb = 1,
+	.use_mains = 1,
+	.update_status = max17048_battery_status,
+	.battery_check = max17048_check_battery,
+	.max_charge_current_mA = 3000,
+	.charging_term_current_mA = 100,
+	.consumer_supplies = tegratab_bq2419x_batt_supply,
+	.num_consumer_supplies = ARRAY_SIZE(tegratab_bq2419x_batt_supply),
+	.wdt_timeout    = 40,
 };
 
-static struct i2c_board_info __initdata bq2419x_boardinfo[] = {
-	{
-		I2C_BOARD_INFO("bq2419x", 0x6b),
-		.platform_data	= &macallan_bq2419x_pdata,
+struct max17048_battery_model tegratab_max17048_mdata = {
+	.rcomp		= 152,
+	.soccheck_A	= 206,
+	.soccheck_B	= 208,
+	.bits		= 19,
+	.alert_threshold = 0x00,
+	.one_percent_alerts = 0x40,
+	.alert_on_reset = 0x40,
+	.rcomp_seg	= 0x0080,
+	.hibernate	= 0x3080,
+	.vreset		= 0x3c96,
+	.valert		= 0xD4AA,
+	.ocvtest	= 55744,
+	.data_tbl = {
+		0xA2, 0x80, 0xA8, 0xF0, 0xAE, 0xD0, 0xB0, 0x90,
+		0xB2, 0x60, 0xB3, 0xF0, 0xB5, 0x80, 0xB7, 0x20,
+		0xB8, 0xD0, 0xBC, 0x00, 0xBE, 0x20, 0xC0, 0x20,
+		0xC3, 0xD0, 0xC9, 0x80, 0xCE, 0xA0, 0xCF, 0xC0,
+		0x0A, 0x60, 0x0D, 0xE0, 0x1D, 0x00, 0x1D, 0xE0,
+		0x1F, 0xE0, 0x1F, 0xE0, 0x11, 0xC0, 0x11, 0x20,
+		0x14, 0x60, 0x0B, 0xE0, 0x14, 0x80, 0x14, 0xC0,
+		0x0E, 0x20, 0x12, 0xA0, 0x03, 0x60, 0x03, 0x60,
 	},
 };
 
+struct max17048_platform_data tegratab_max17048_pdata = {
+	.use_ac = 0,
+	.use_usb = 0,
+	.model_data = &tegratab_max17048_mdata,
+};
 
-/************************ Macallan based regulator ****************/
+static struct i2c_board_info __initdata tegratab_max17048_boardinfo[] = {
+	{
+		I2C_BOARD_INFO("max17048", 0x36),
+		.platform_data	= &tegratab_max17048_pdata,
+	},
+};
+
+struct bq2419x_platform_data tegratab_bq2419x_pdata = {
+	.vbus_pdata = &tegratab_bq2419x_vbus_pdata,
+	.bcharger_pdata = &tegratab_bq2419x_charger_pdata,
+};
+
+static struct i2c_board_info __initdata tegratab_bq2419x_boardinfo[] = {
+	{
+		I2C_BOARD_INFO("bq2419x", 0x6b),
+		.platform_data = &tegratab_bq2419x_pdata,
+	},
+};
+
+/************************ Tegratab based regulator ****************/
 static struct regulator_consumer_supply palmas_smps123_supply[] = {
 	REGULATOR_SUPPLY("vdd_cpu", NULL),
 };
 
 static struct regulator_consumer_supply palmas_smps45_supply[] = {
 	REGULATOR_SUPPLY("vdd_core", NULL),
+	REGULATOR_SUPPLY("vdd_core", "sdhci-tegra.0"),
+	REGULATOR_SUPPLY("vdd_core", "sdhci-tegra.3"),
 };
 
 static struct regulator_consumer_supply palmas_smps6_supply[] = {
@@ -118,7 +174,6 @@ static struct regulator_consumer_supply palmas_smps8_supply[] = {
 	REGULATOR_SUPPLY("vddio_gmi", NULL),
 	REGULATOR_SUPPLY("vlogic", "0-0069"),
 	REGULATOR_SUPPLY("vid", "0-000d"),
-	REGULATOR_SUPPLY("vddio", "0-0078"),
 };
 
 static struct regulator_consumer_supply palmas_smps9_supply[] = {
@@ -154,30 +209,23 @@ static struct regulator_consumer_supply palmas_ldo3_supply[] = {
 };
 
 static struct regulator_consumer_supply palmas_ldo4_supply[] = {
-	REGULATOR_SUPPLY("vdd_1v2_cam", NULL),
 	REGULATOR_SUPPLY("dvdd", "2-0010"),
-	REGULATOR_SUPPLY("vdig", "2-0036"),
 };
 
 static struct regulator_consumer_supply palmas_ldo5_supply[] = {
-	REGULATOR_SUPPLY("avdd_cam2", NULL),
-	REGULATOR_SUPPLY("avdd", "2-0010"),
+	REGULATOR_SUPPLY("vdd_af_cam1", NULL),
+	REGULATOR_SUPPLY("vdd", "2-000c"),
+	REGULATOR_SUPPLY("vana", "2-0048"),
 };
 
 static struct regulator_consumer_supply palmas_ldo6_supply[] = {
 	REGULATOR_SUPPLY("vdd", "0-0069"),
 	REGULATOR_SUPPLY("vdd", "0-000d"),
-	REGULATOR_SUPPLY("vdd", "0-0078"),
 };
 
 static struct regulator_consumer_supply palmas_ldo7_supply[] = {
-	REGULATOR_SUPPLY("avdd_2v8_cam_af", NULL),
-	REGULATOR_SUPPLY("vdd_af_cam1", NULL),
-	REGULATOR_SUPPLY("avdd_cam1", NULL),
-	REGULATOR_SUPPLY("vana", "2-0036"),
-	REGULATOR_SUPPLY("vdd", "2-000e"),
+	REGULATOR_SUPPLY("avdd", "2-0010"),
 };
-
 static struct regulator_consumer_supply palmas_ldo8_supply[] = {
 	REGULATOR_SUPPLY("vdd_rtc", NULL),
 };
@@ -246,7 +294,7 @@ PALMAS_REGS_PDATA(regen2, 4200,  4200, palmas_rails(smps8), 0, 0, 0, 0,
 	0, 0, 0, 0, 0);
 
 #define PALMAS_REG_PDATA(_sname) (&reg_idata_##_sname)
-static struct regulator_init_data *macallan_reg_data[PALMAS_NUM_REGS] = {
+static struct regulator_init_data *tegratab_reg_data[PALMAS_NUM_REGS] = {
 	NULL,
 	PALMAS_REG_PDATA(smps123),
 	NULL,
@@ -276,7 +324,7 @@ static struct regulator_init_data *macallan_reg_data[PALMAS_NUM_REGS] = {
 };
 
 #define PALMAS_REG_INIT_DATA(_sname) (&reg_init_data_##_sname)
-static struct palmas_reg_init *macallan_reg_init[PALMAS_NUM_REGS] = {
+static struct palmas_reg_init *tegratab_reg_init[PALMAS_NUM_REGS] = {
 	NULL,
 	PALMAS_REG_INIT_DATA(smps123),
 	NULL,
@@ -331,16 +379,19 @@ static struct palmas_pinctrl_platform_data palmas_pinctrl_pdata = {
 	.dvfs2_enable = false,
 };
 
+struct palmas_extcon_platform_data palmas_extcon_pdata = {
+	.connection_name = "palmas-extcon",
+	.enable_vbus_detection = true,
+	.enable_id_pin_detection = false,
+};
+
 static struct palmas_platform_data palmas_pdata = {
 	.gpio_base = PALMAS_TEGRA_GPIO_BASE,
 	.irq_base = PALMAS_TEGRA_IRQ_BASE,
 	.pmic_pdata = &pmic_platform,
-	.mux_from_pdata = true,
-	.pad1 = 0,
-	.pad2 = 0,
-	.pad3 = PALMAS_PRIMARY_SECONDARY_PAD3_DVFS1,
 	.use_power_off = true,
 	.pinctrl_pdata = &palmas_pinctrl_pdata,
+	.extcon_pdata = &palmas_extcon_pdata,
 };
 
 static struct i2c_board_info palma_device[] = {
@@ -374,11 +425,8 @@ static struct regulator_consumer_supply fixed_reg_vddio_sd_slot_supply[] = {
 };
 
 static struct regulator_consumer_supply fixed_reg_vd_cam_1v8_supply[] = {
-	REGULATOR_SUPPLY("vdd_cam_1v8", NULL),
-	REGULATOR_SUPPLY("vi2c", "2-0030"),
-	REGULATOR_SUPPLY("vif", "2-0036"),
 	REGULATOR_SUPPLY("dovdd", "2-0010"),
-	REGULATOR_SUPPLY("vdd_i2c", "2-000e"),
+	REGULATOR_SUPPLY("vif2", "2-0048"),
 };
 
 /* Macro for defining fixed regulator sub device data */
@@ -449,7 +497,7 @@ FIXED_REG(6,	vd_cam_1v8,	vd_cam_1v8,
 
 #define ADD_FIXED_REG(_name)	(&fixed_reg_##_name##_dev)
 
-/* Gpio switch regulator platform data for Macallan E1545 */
+/* Gpio switch regulator platform data for Tegratab E1569 */
 static struct platform_device *fixed_reg_devs[] = {
 	ADD_FIXED_REG(dvdd_lcd_1v8),
 	ADD_FIXED_REG(vdd_lcd_bl_en),
@@ -460,7 +508,7 @@ static struct platform_device *fixed_reg_devs[] = {
 };
 
 
-int __init macallan_palmas_regulator_init(void)
+int __init tegratab_palmas_regulator_init(void)
 {
 	void __iomem *pmc = IO_ADDRESS(TEGRA_PMC_BASE);
 	u32 pmc_ctrl;
@@ -473,15 +521,12 @@ int __init macallan_palmas_regulator_init(void)
 	pmc_ctrl = readl(pmc + PMC_CTRL);
 	writel(pmc_ctrl | PMC_CTRL_INTR_LOW, pmc + PMC_CTRL);
 	for (i = 0; i < PALMAS_NUM_REGS ; i++) {
-		pmic_platform.reg_data[i] = macallan_reg_data[i];
-		pmic_platform.reg_init[i] = macallan_reg_init[i];
+		pmic_platform.reg_data[i] = tegratab_reg_data[i];
+		pmic_platform.reg_init[i] = tegratab_reg_init[i];
 	}
 
 	i2c_register_board_info(4, palma_device,
 			ARRAY_SIZE(palma_device));
-	i2c_register_board_info(0, bq2419x_boardinfo,
-			ARRAY_SIZE(bq2419x_boardinfo));
-
 	return 0;
 }
 
@@ -490,27 +535,27 @@ static int ac_online(void)
 	return 1;
 }
 
-static struct resource macallan_pda_resources[] = {
+static struct resource tegratab_pda_resources[] = {
 	[0] = {
 		.name	= "ac",
 	},
 };
 
-static struct pda_power_pdata macallan_pda_data = {
+static struct pda_power_pdata tegratab_pda_data = {
 	.is_ac_online	= ac_online,
 };
 
-static struct platform_device macallan_pda_power_device = {
+static struct platform_device tegratab_pda_power_device = {
 	.name		= "pda-power",
 	.id		= -1,
-	.resource	= macallan_pda_resources,
-	.num_resources	= ARRAY_SIZE(macallan_pda_resources),
+	.resource	= tegratab_pda_resources,
+	.num_resources	= ARRAY_SIZE(tegratab_pda_resources),
 	.dev	= {
-		.platform_data	= &macallan_pda_data,
+		.platform_data	= &tegratab_pda_data,
 	},
 };
 
-static struct tegra_suspend_platform_data macallan_suspend_data = {
+static struct tegra_suspend_platform_data tegratab_suspend_data = {
 	.cpu_timer	= 300,
 	.cpu_off_timer	= 300,
 	.suspend_mode	= TEGRA_SUSPEND_LP0,
@@ -518,11 +563,20 @@ static struct tegra_suspend_platform_data macallan_suspend_data = {
 	.core_off_timer = 2000,
 	.corereq_high	= true,
 	.sysclkreq_high	= true,
+	.cpu_lp2_min_residency = 1000,
 	.min_residency_crail = 20000,
+#ifdef CONFIG_TEGRA_LP1_LOW_COREVOLTAGE
+	.lp1_lowvolt_support = false,
+	.i2c_base_addr = 0,
+	.pmuslave_addr = 0,
+	.core_reg_addr = 0,
+	.lp1_core_volt_low = 0,
+	.lp1_core_volt_high = 0,
+#endif
 };
 #ifdef CONFIG_ARCH_TEGRA_HAS_CL_DVFS
 /* board parameters for cpu dfll */
-static struct tegra_cl_dvfs_cfg_param macallan_cl_dvfs_param = {
+static struct tegra_cl_dvfs_cfg_param tegratab_cl_dvfs_param = {
 	.sample_rate = 12500,
 
 	.force_mode = TEGRA_CL_DVFS_FORCE_FIXED,
@@ -549,7 +603,7 @@ static inline void fill_reg_map(void)
 }
 
 #ifdef CONFIG_ARCH_TEGRA_HAS_CL_DVFS
-static struct tegra_cl_dvfs_platform_data macallan_cl_dvfs_data = {
+static struct tegra_cl_dvfs_platform_data tegratab_cl_dvfs_data = {
 	.dfll_clk_name = "dfll_cpu",
 	.pmu_if = TEGRA_CL_DVFS_PMU_I2C,
 	.u.pmu_i2c = {
@@ -560,51 +614,61 @@ static struct tegra_cl_dvfs_platform_data macallan_cl_dvfs_data = {
 	.vdd_map = pmu_cpu_vdd_map,
 	.vdd_map_size = PMU_CPU_VDD_MAP_SIZE,
 
-	.cfg_param = &macallan_cl_dvfs_param,
+	.cfg_param = &tegratab_cl_dvfs_param,
 };
 
-static int __init macallan_cl_dvfs_init(void)
+static int __init tegratab_cl_dvfs_init(void)
 {
 	fill_reg_map();
 	if (tegra_revision < TEGRA_REVISION_A02)
-		macallan_cl_dvfs_data.out_quiet_then_disable = true;
-	tegra_cl_dvfs_device.dev.platform_data = &macallan_cl_dvfs_data;
+		tegratab_cl_dvfs_data.out_quiet_then_disable = true;
+	tegra_cl_dvfs_device.dev.platform_data = &tegratab_cl_dvfs_data;
 	platform_device_register(&tegra_cl_dvfs_device);
 
 	return 0;
 }
 #endif
 
-static int __init macallan_fixed_regulator_init(void)
+static int __init tegratab_fixed_regulator_init(void)
 {
-	if (!machine_is_macallan())
+	if (!machine_is_tegratab())
 		return 0;
 
 	return platform_add_devices(fixed_reg_devs,
 			ARRAY_SIZE(fixed_reg_devs));
 }
-subsys_initcall_sync(macallan_fixed_regulator_init);
+subsys_initcall_sync(tegratab_fixed_regulator_init);
 
-int __init macallan_regulator_init(void)
+
+int __init tegratab_regulator_init(void)
 {
 
 #ifdef CONFIG_ARCH_TEGRA_HAS_CL_DVFS
-	macallan_cl_dvfs_init();
+	tegratab_cl_dvfs_init();
 #endif
-	macallan_palmas_regulator_init();
+	tegratab_palmas_regulator_init();
 
-	platform_device_register(&macallan_pda_power_device);
+	i2c_register_board_info(0, tegratab_max17048_boardinfo, 1);
+
+	/* Disable charger when adapter is power source. */
+	if (get_power_supply_type() != POWER_SUPPLY_TYPE_BATTERY)
+		tegratab_bq2419x_pdata.bcharger_pdata = NULL;
+
+	tegratab_bq2419x_boardinfo[0].irq = gpio_to_irq(TEGRA_GPIO_PJ0);
+	i2c_register_board_info(0, tegratab_bq2419x_boardinfo, 1);
+
+	platform_device_register(&tegratab_pda_power_device);
 
 	return 0;
 }
 
-int __init macallan_suspend_init(void)
+int __init tegratab_suspend_init(void)
 {
-	tegra_init_suspend(&macallan_suspend_data);
+	tegra_init_suspend(&tegratab_suspend_data);
 	return 0;
 }
 
-int __init macallan_edp_init(void)
+int __init tegratab_edp_init(void)
 {
 	unsigned int regulator_mA;
 
@@ -625,6 +689,10 @@ int __init macallan_edp_init(void)
 	return 0;
 }
 
+static struct thermal_zone_params tegratab_soctherm_therm_cpu_tzp = {
+	.governor_name = "pid_thermal_gov",
+};
+
 static struct tegra_tsensor_pmu_data tpdata_palmas = {
 	.reset_tegra = 1,
 	.pmu_16bit_ops = 0,
@@ -635,11 +703,12 @@ static struct tegra_tsensor_pmu_data tpdata_palmas = {
 	.poweroff_reg_data = 0x0,
 };
 
-static struct soctherm_platform_data macallan_soctherm_data = {
+static struct soctherm_platform_data tegratab_soctherm_data = {
 	.therm = {
 		[THERM_CPU] = {
 			.zone_enable = true,
 			.passive_delay = 1000,
+			.hotspot_offset = 6000,
 			.num_trips = 3,
 			.trips = {
 				{
@@ -664,9 +733,11 @@ static struct soctherm_platform_data macallan_soctherm_data = {
 					.lower = THERMAL_NO_LIMIT,
 				},
 			},
+			.tzp = &tegratab_soctherm_therm_cpu_tzp,
 		},
 		[THERM_GPU] = {
 			.zone_enable = true,
+			.hotspot_offset = 6000,
 		},
 		[THERM_PLL] = {
 			.zone_enable = true,
@@ -684,13 +755,15 @@ static struct soctherm_platform_data macallan_soctherm_data = {
 	.tshut_pmu_trip_data = &tpdata_palmas,
 };
 
-int __init macallan_soctherm_init(void)
+int __init tegratab_soctherm_init(void)
 {
-	tegra_platform_edp_init(macallan_soctherm_data.therm[THERM_CPU].trips,
-			&macallan_soctherm_data.therm[THERM_CPU].num_trips,
+	tegra_platform_edp_init(tegratab_soctherm_data.therm[THERM_CPU].trips,
+			&tegratab_soctherm_data.therm[THERM_CPU].num_trips,
 			8000); /* edp temperature margin */
-	tegra_add_tj_trips(macallan_soctherm_data.therm[THERM_CPU].trips,
-			&macallan_soctherm_data.therm[THERM_CPU].num_trips);
+	tegra_add_tj_trips(tegratab_soctherm_data.therm[THERM_CPU].trips,
+			&tegratab_soctherm_data.therm[THERM_CPU].num_trips);
+	tegra_add_vc_trips(tegratab_soctherm_data.therm[THERM_CPU].trips,
+			&tegratab_soctherm_data.therm[THERM_CPU].num_trips);
 
-	return tegra11_soctherm_init(&macallan_soctherm_data);
+	return tegra11_soctherm_init(&tegratab_soctherm_data);
 }
