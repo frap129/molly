@@ -41,6 +41,7 @@
 #include <mach/sdhci.h>
 #include <mach/io_dpd.h>
 #include <mach/pinmux.h>
+#include <mach/clk.h>
 
 #include "sdhci-pltfm.h"
 
@@ -195,7 +196,7 @@ static struct freq_tuning_params tuning_params[TUNING_FREQ_COUNT] = {
 	[TUNING_HIGH_FREQ] = {
 		.freq_hz = 156000000,
 		.nr_voltages = 2,
-		.voltages = {ULONG_MAX, 1100000},
+		.voltages = {ULONG_MAX, 1100},
 	},
 };
 
@@ -212,6 +213,8 @@ struct tap_window_data {
 struct tegra_tuning_data {
 	unsigned int		best_tap_value;
 	bool			select_partial_win;
+	bool			nominal_vcore_tuning_done;
+	bool			overide_vcore_tuning_done;
 	struct tap_window_data	*tap_data[TUNING_VOLTAGES_COUNT];
 };
 
@@ -242,7 +245,8 @@ struct sdhci_tegra {
 	struct clk *emc_clk;
 	unsigned int emc_max_clk;
 	struct sdhci_tegra_sd_stats *sd_stat_head;
-	unsigned int nominal_vcore_uV;
+	unsigned int nominal_vcore_mv;
+	unsigned int min_vcore_override_mv;
 	/* Tuning related structures and variables */
 	/* Tuning opcode to be used */
 	unsigned int tuning_opcode;
@@ -254,6 +258,7 @@ struct sdhci_tegra {
 #define TUNING_STATUS_RETUNE	2
 	/* Freq tuning information for each sampling clock freq */
 	struct tegra_tuning_data tuning_data;
+	bool set_tuning_override;
 	bool is_parent_pllc;
 	struct notifier_block reboot_notify;
 };
@@ -1467,6 +1472,8 @@ static int sdhci_tegra_execute_tuning(struct sdhci_host *sdhci, u32 opcode)
 	unsigned int freq_band;
 	unsigned int i;
 	unsigned int voltage;
+	bool one_shot_tuning = false;
+	bool vcore_override_failed = false;
 
 	/* Tuning is valid only in SDR104 and SDR50 modes */
 	ctrl_2 = sdhci_readw(sdhci, SDHCI_HOST_CONTROL2);
@@ -1483,6 +1490,8 @@ static int sdhci_tegra_execute_tuning(struct sdhci_host *sdhci, u32 opcode)
 	else
 		return -EINVAL;
 
+	sdhci->flags &= ~SDHCI_NEEDS_RETUNING;
+
 	/* Set the tuning command to be used */
 	tegra_host->tuning_opcode = opcode;
 
@@ -1496,6 +1505,12 @@ static int sdhci_tegra_execute_tuning(struct sdhci_host *sdhci, u32 opcode)
 	sdhci_writel(sdhci, SDHCI_INT_DATA_AVAIL |
 		SDHCI_INT_DATA_CRC, SDHCI_INT_ENABLE);
 
+	if (sdhci->max_clk > tuning_params[TUNING_LOW_FREQ].freq_hz)
+		freq_band = TUNING_HIGH_FREQ;
+	else
+		freq_band = TUNING_LOW_FREQ;
+	tuning_data = &tegra_host->tuning_data;
+
 	/*
 	 * If tuning is already done and retune request is not set, then skip
 	 * best tap value calculation and use the old best tap value.
@@ -1503,10 +1518,11 @@ static int sdhci_tegra_execute_tuning(struct sdhci_host *sdhci, u32 opcode)
 	if (tegra_host->tuning_status == TUNING_STATUS_DONE)
 		goto set_best_tap;
 
-	if (sdhci->max_clk > tuning_params[TUNING_LOW_FREQ].freq_hz)
-		freq_band = TUNING_HIGH_FREQ;
-	else
-		freq_band = TUNING_LOW_FREQ;
+	/* Remove any previously set override voltages */
+	if (tegra_host->set_tuning_override) {
+		tegra_dvfs_override_core_voltage(0);
+		tegra_host->set_tuning_override = false;
+	}
 
 	/*
 	 * Run tuning and get the passing tap window info for all frequencies
@@ -1515,7 +1531,6 @@ static int sdhci_tegra_execute_tuning(struct sdhci_host *sdhci, u32 opcode)
 	 * holding a lock. The spinlock needs to be released when calling
 	 * non-atomic context functions like regulator calls etc.
 	 */
-	tuning_data = &tegra_host->tuning_data;
 	for (i = 0; i < tuning_params[freq_band].nr_voltages; i++) {
 		spin_unlock(&sdhci->lock);
 		if (!tuning_data->tap_data[i]) {
@@ -1532,36 +1547,81 @@ static int sdhci_tegra_execute_tuning(struct sdhci_host *sdhci, u32 opcode)
 		}
 		tap_data = tuning_data->tap_data[i];
 
-		if (tegra_host->nominal_vcore_uV) {
-			if (!tegra_host->vcore_reg)
-				tegra_host->vcore_reg = regulator_get(
-				mmc_dev(sdhci->mmc), "vdd_core");
-			if (IS_ERR_OR_NULL(tegra_host->vcore_reg)) {
-				dev_info(mmc_dev(sdhci->mmc),
-					"No vdd_core %ld. Tuning might fail.\n",
-					PTR_ERR(tegra_host->vcore_reg));
-				tegra_host->vcore_reg = NULL;
-			} else {
-				voltage = tuning_params[freq_band].voltages[i];
-				if (voltage > tegra_host->nominal_vcore_uV)
-					voltage = tegra_host->nominal_vcore_uV;
-				err = regulator_set_voltage(
-					tegra_host->vcore_reg, voltage,
-					voltage);
-				if (err)
-					dev_err(mmc_dev(sdhci->mmc),
-						"Setting nominal core voltage failed\n");
+		/*
+		 * If nominal vcore is not specified, run tuning once and set
+		 * the tap value. Tuning might fail but this is a better option
+		 * than not trying tuning at all.
+		 */
+		if (!tegra_host->nominal_vcore_mv) {
+			dev_err(mmc_dev(sdhci->mmc),
+				"Missing nominal vcore. Tuning might fail\n");
+			one_shot_tuning = true;
+			goto skip_vcore_override;
+		}
+
+		voltage = tuning_params[freq_band].voltages[i];
+		if (voltage > tegra_host->nominal_vcore_mv) {
+			voltage = tegra_host->nominal_vcore_mv;
+			if (tuning_data->nominal_vcore_tuning_done) {
+				spin_lock(&sdhci->lock);
+				continue;
 			}
+		}
+		if (voltage < tegra_host->min_vcore_override_mv) {
+			voltage = tegra_host->min_vcore_override_mv;
+			if (tuning_data->overide_vcore_tuning_done) {
+				spin_lock(&sdhci->lock);
+				continue;
+			}
+		}
+		err = tegra_dvfs_override_core_voltage(voltage);
+		if (err) {
+			vcore_override_failed = true;
+			dev_err(mmc_dev(sdhci->mmc),
+				"Setting tuning override_mv %d failed %d\n",
+				voltage, err);
 		}
 		spin_lock(&sdhci->lock);
 
+skip_vcore_override:
 		/* Get the tuning window info */
 		err = sdhci_tegra_get_tap_window_data(sdhci, tap_data);
 		if (err) {
-			dev_err(mmc_dev(sdhci->mmc), "Failed to tuning window info\n");
+			dev_err(mmc_dev(sdhci->mmc), "No tuning window\n");
 			goto out;
 		}
+
+		if (one_shot_tuning) {
+			spin_lock(&sdhci->lock);
+			tuning_data->nominal_vcore_tuning_done = true;
+			tuning_data->overide_vcore_tuning_done = true;
+			break;
+		}
+
+		if (!vcore_override_failed) {
+			if (voltage == tegra_host->nominal_vcore_mv)
+				tuning_data->nominal_vcore_tuning_done = true;
+			else if (voltage >= tegra_host->min_vcore_override_mv)
+				tuning_data->overide_vcore_tuning_done = true;
+		}
+
+		/* Release the override voltage setting */
+		spin_unlock(&sdhci->lock);
+		err = tegra_dvfs_override_core_voltage(0);
+		if (err)
+			dev_err(mmc_dev(sdhci->mmc),
+				"Clearing tuning override voltage failed %d\n",
+					err);
+		spin_lock(&sdhci->lock);
 	}
+
+	/* If setting min override voltage failed for the first time, set
+	 * nominal core voltage as override until retuning is done.
+	 */
+	if ((tegra_host->tuning_status != TUNING_STATUS_RETUNE) &&
+		tuning_data->nominal_vcore_tuning_done &&
+		!tuning_data->overide_vcore_tuning_done)
+		tegra_host->set_tuning_override = true;
 
 	/* Calculate best tap for current freq band */
 	if (freq_band == TUNING_LOW_FREQ)
@@ -1578,18 +1638,39 @@ set_best_tap:
 	 * for retuning next time enumeration is done.
 	 */
 	err = sdhci_tegra_run_frequency_tuning(sdhci);
-	if (err)
+	if (err) {
+		tuning_data->nominal_vcore_tuning_done = false;
+		tuning_data->overide_vcore_tuning_done = false;
 		tegra_host->tuning_status = TUNING_STATUS_RETUNE;
-	else
-		tegra_host->tuning_status = TUNING_STATUS_DONE;
+	} else {
+		if (tuning_data->nominal_vcore_tuning_done &&
+			tuning_data->overide_vcore_tuning_done)
+			tegra_host->tuning_status = TUNING_STATUS_DONE;
+		else
+			tegra_host->tuning_status = TUNING_STATUS_RETUNE;
+	}
 
 out:
-	/* Enable the full range for core voltage if vcore_reg exists */
-	if (tegra_host->vcore_reg) {
+	/*
+	 * Lock down the core voltage if tuning at override voltage failed
+	 * for the first time. The override setting will be removed once
+	 * retuning is called.
+	 */
+	if (tegra_host->set_tuning_override) {
+		dev_info(mmc_dev(sdhci->mmc),
+			"Nominal core voltage being set until retuning\n");
 		spin_unlock(&sdhci->lock);
-		regulator_put(tegra_host->vcore_reg);
-		tegra_host->vcore_reg = NULL;
+		err = tegra_dvfs_override_core_voltage(
+				tegra_host->nominal_vcore_mv);
+		if (err)
+			dev_err(mmc_dev(sdhci->mmc),
+				"Clearing tuning override voltage failed %d\n",
+					err);
 		spin_lock(&sdhci->lock);
+
+		/* Schedule for the retuning */
+		mod_timer(&sdhci->tuning_timer, jiffies +
+			10 * HZ);
 	}
 
 	/* Enable interrupts. Enable full range for core voltage */
@@ -2109,8 +2190,10 @@ static int __devinit sdhci_tegra_probe(struct platform_device *pdev)
 	host->mmc->caps |= MMC_CAP_CMD23;
 #endif
 
-	if (plat->nominal_vcore_uV)
-		tegra_host->nominal_vcore_uV = plat->nominal_vcore_uV;
+	if (plat->nominal_vcore_mv)
+		tegra_host->nominal_vcore_mv = plat->nominal_vcore_mv;
+	if (plat->min_vcore_override_mv)
+		tegra_host->min_vcore_override_mv = plat->min_vcore_override_mv;
 
 	rc = sdhci_add_host(host);
 
