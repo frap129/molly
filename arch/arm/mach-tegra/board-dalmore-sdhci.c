@@ -37,7 +37,7 @@
 #include "gpio-names.h"
 #include "board.h"
 #include "board-dalmore.h"
-
+#include "dvfs.h"
 
 #define DALMORE_WLAN_PWR	TEGRA_GPIO_PCC5
 #define DALMORE_WLAN_RST	TEGRA_GPIO_PX7
@@ -390,6 +390,24 @@ subsys_initcall_sync(dalmore_wifi_prepower);
 
 int __init dalmore_sdhci_init(void)
 {
+	int nominal_core_mv;
+	int min_vcore_override_mv;
+
+	nominal_core_mv =
+		tegra_dvfs_rail_get_nominal_millivolts(tegra_core_rail);
+	if (nominal_core_mv) {
+		tegra_sdhci_platform_data0.nominal_vcore_mv = nominal_core_mv;
+		tegra_sdhci_platform_data3.nominal_vcore_mv = nominal_core_mv;
+	}
+	min_vcore_override_mv =
+		tegra_dvfs_rail_get_override_floor(tegra_core_rail);
+	if (min_vcore_override_mv) {
+		tegra_sdhci_platform_data0.min_vcore_override_mv =
+			min_vcore_override_mv;
+		tegra_sdhci_platform_data3.min_vcore_override_mv =
+			min_vcore_override_mv;
+	}
+
 	platform_device_register(&tegra_sdhci_device3);
 	platform_device_register(&tegra_sdhci_device2);
 	platform_device_register(&tegra_sdhci_device0);
