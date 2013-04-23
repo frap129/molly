@@ -759,8 +759,6 @@ static int rm_tch_cmd_process(u8 selCase, u8 *pCmdTbl, struct rm_tch_ts *ts)
 							clk_disable(ts->clk);
 					} else
 						ret = FAIL;
-				} else {
-					ret = FAIL;
 				}
 				break;
 			case KRL_CMD_SET_TIMER:
@@ -1682,11 +1680,24 @@ static int rm31080_voltage_notifier_1v8(struct notifier_block *nb,
 static int rm31080_voltage_notifier_3v3(struct notifier_block *nb,
 					unsigned long event, void *ignored)
 {
-	struct rm_tch_ts *ts;
-
-	ts = input_get_drvdata(g_input_dev);
+	int error;
+	struct rm_tch_ts *ts = input_get_drvdata(g_input_dev);
 
 	rm_printk("rm31080 REGULATOR EVENT:0x%x\n", (unsigned int)event);
+
+	if (event & REGULATOR_EVENT_DISABLE) {
+		/* 1. 3v3 power down */
+		/* 2. wait 5ms */
+		usleep_range(5000, 6000);
+		/* 3. 1v8 power down */
+		error = regulator_disable(ts->regulator_1v8);
+		if (error < 0) {
+			dev_err(&g_spi->dev,
+				"raydium regulator 1v8 disable failed: %d\n",
+				error);
+			return NOTIFY_BAD;
+		}
+	}
 
 	return NOTIFY_OK;
 }
