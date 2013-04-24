@@ -94,6 +94,8 @@
 #define TUNING_FREQ_COUNT	3
 #define TUNING_VOLTAGES_COUNT	2
 #define TUNING_RETRIES	1
+#define SDMMC_AHB_MAX_FREQ	80000000
+#define SDMMC_EMC_MAX_FREQ	100000000
 
 struct sdhci_host *sdhci_host_for_sdio;
 
@@ -249,6 +251,9 @@ struct sdhci_tegra {
 	bool is_rail_enabled;
 	struct clk *emc_clk;
 	bool emc_clk_enabled;
+	bool is_sdmmc_emc_clk_on;
+	struct clk *sclk;
+	bool is_sdmmc_sclk_on;
 	unsigned int emc_max_clk;
 	struct sdhci_tegra_sd_stats *sd_stat_head;
 	unsigned int nominal_vcore_mv;
@@ -887,7 +892,23 @@ static void tegra_sdhci_set_clock(struct sdhci_host *sdhci, unsigned int clock)
 		tegra_sdhci_set_clk_rate(sdhci, clock);
 		if (tegra_host->hw_ops->set_card_clock)
 			tegra_host->hw_ops->set_card_clock(sdhci, clock);
+		if (tegra_host->emc_clk && (!tegra_host->is_sdmmc_emc_clk_on)) {
+			clk_prepare_enable(tegra_host->emc_clk);
+			tegra_host->is_sdmmc_emc_clk_on = true;
+		}
+		if (tegra_host->sclk && (!tegra_host->is_sdmmc_sclk_on)) {
+			clk_prepare_enable(tegra_host->sclk);
+			tegra_host->is_sdmmc_sclk_on = true;
+		}
 	} else if (!clock && tegra_host->clk_enabled) {
+		if (tegra_host->emc_clk && tegra_host->is_sdmmc_emc_clk_on) {
+			clk_disable_unprepare(tegra_host->emc_clk);
+			tegra_host->is_sdmmc_emc_clk_on = false;
+		}
+		if (tegra_host->sclk && tegra_host->is_sdmmc_sclk_on) {
+			clk_disable_unprepare(tegra_host->sclk);
+			tegra_host->is_sdmmc_sclk_on = false;
+		}
 		if (tegra_host->hw_ops->set_card_clock)
 			tegra_host->hw_ops->set_card_clock(sdhci, clock);
 		ctrl = sdhci_readb(sdhci, SDHCI_VNDR_CLK_CTRL);
@@ -2359,13 +2380,23 @@ static int __devinit sdhci_tegra_probe(struct platform_device *pdev)
 	if (!strcmp(dev_name(mmc_dev(host->mmc)), "sdhci-tegra.0")) {
 		tegra_host->emc_clk = clk_get(mmc_dev(host->mmc), "emc");
 		if (IS_ERR(tegra_host->emc_clk)) {
-			dev_err(mmc_dev(host->mmc), "clk err\n");
+			dev_err(mmc_dev(host->mmc), "Can't get emc clk\n");
 			rc = PTR_ERR(tegra_host->emc_clk);
 			goto err_clk_put;
-		} else
-			clk_set_rate(tegra_host->emc_clk, 900000000);
+		}
+		tegra_host->emc_max_clk =
+			clk_round_rate(tegra_host->emc_clk, ULONG_MAX);
+		clk_set_rate(tegra_host->emc_clk, SDMMC_EMC_MAX_FREQ);
 	}
 
+	tegra_host->sclk = clk_get(mmc_dev(host->mmc), "sclk");
+	if (IS_ERR_OR_NULL(tegra_host->sclk)) {
+		dev_err(mmc_dev(host->mmc), "Can't get sclk clock\n");
+		clk_put(tegra_host->sclk);
+		tegra_host->sclk = NULL;
+	} else {
+		clk_set_rate(tegra_host->sclk, SDMMC_AHB_MAX_FREQ);
+	}
 	pltfm_host->priv = tegra_host;
 	tegra_host->clk_enabled = true;
 	tegra_host->max_clk_limit = plat->max_clk_limit;
@@ -2493,6 +2524,16 @@ static int __devexit sdhci_tegra_remove(struct platform_device *pdev)
 	}
 	clk_put(pltfm_host->clk);
 
+	if (tegra_host->emc_clk) {
+		if (tegra_host->is_sdmmc_emc_clk_on)
+			clk_disable_unprepare(tegra_host->emc_clk);
+		clk_put(tegra_host->emc_clk);
+	}
+	if (tegra_host->sclk) {
+		if (tegra_host->is_sdmmc_sclk_on)
+			clk_disable_unprepare(tegra_host->sclk);
+		clk_put(tegra_host->sclk);
+	}
 	if (plat->power_off_rail)
 		unregister_reboot_notifier(&tegra_host->reboot_notify);
 
