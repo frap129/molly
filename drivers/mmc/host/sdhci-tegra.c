@@ -1512,7 +1512,9 @@ static int sdhci_tegra_execute_tuning(struct sdhci_host *sdhci, u32 opcode)
 
 	/* Remove any previously set override voltages */
 	if (tegra_host->set_tuning_override) {
+		spin_unlock(&sdhci->lock);
 		tegra_dvfs_override_core_voltage(0);
+		spin_lock(&sdhci->lock);
 		tegra_host->set_tuning_override = false;
 	}
 
