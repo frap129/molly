@@ -8354,6 +8354,15 @@ static s32 wl_escan_handler(struct wl_priv *wl,
 
 	}
 	else if (status == WLC_E_STATUS_SUCCESS) {
+#ifdef P2P_DISCOVERY_WAR
+		if (wl->p2p_net && wl->scan_request &&
+			wl->scan_request->dev == wl->p2p_net &&
+			!wl->p2p->vif_created) {
+			if (wldev_iovar_setint(wl_to_prmry_ndev(wl), "mpc", 1) < 0) {
+				WL_ERR(("mpc enabling back failed\n"));
+			}
+		}
+#endif
 		wl->escan_info.escan_state = WL_ESCAN_STATE_IDLE;
 		if (wl_get_drv_status_all(wl, FINDING_COMMON_CHANNEL)) {
 			WL_INFO(("ACTION FRAME SCAN DONE\n"));
@@ -8373,6 +8382,15 @@ static s32 wl_escan_handler(struct wl_priv *wl,
 		}
 	}
 	else if (status == WLC_E_STATUS_ABORT) {
+#ifdef P2P_DISCOVERY_WAR
+		if (wl->p2p_net && wl->scan_request &&
+			wl->scan_request->dev == wl->p2p_net &&
+			!wl->p2p->vif_created) {
+			if (wldev_iovar_setint(wl_to_prmry_ndev(wl), "mpc", 1) < 0) {
+				WL_ERR(("mpc enabling back failed\n"));
+			}
+		}
+#endif
 		wl->escan_info.escan_state = WL_ESCAN_STATE_IDLE;
 		if (wl_get_drv_status_all(wl, FINDING_COMMON_CHANNEL)) {
 			WL_INFO(("ACTION FRAME SCAN DONE\n"));
