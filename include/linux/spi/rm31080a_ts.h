@@ -22,7 +22,6 @@
 #define RM_IOCTL_SCRIBER_CTRL				0x1006
 #define RM_IOCTL_READ_RAW_DATA				0x1007
 #define RM_IOCTL_AUTOSCAN_CTRL				0x1008
-#define RM_IOCTL_NOISE_CHECK				0x1009
 #define RM_IOCTL_GET_PARAMETER				0x100A
 #define RM_IOCTL_SET_VARIABLE				0x1010
 #define RM_VARIABLE_SELF_TEST_RESULT			0x01
@@ -35,6 +34,7 @@
 #define RM_VARIABLE_TEST_VERSION				0x08
 #define RM_IOCTL_GET_VARIABLE				0x1011
 #define RM_VARIABLE_PLATFORM_ID					0x01
+#define RM_VARIABLE_GPIO_SELECT					0x02
 #define RM_IOCTL_GET_SACN_MODE				0x1012
 #define RM_IOCTL_SET_KRL_TBL				0x1013
 #define RM_IOCTL_WATCH_DOG					0x1014
@@ -58,7 +58,6 @@
 #define RM_SELF_TEST_STATUS_TESTING			1
 #define RM_SELF_TEST_RESULT_FAIL			0
 #define RM_SELF_TEST_RESULT_PASS			1
-
 
 /****************************************************************************
  * Platform define
@@ -165,6 +164,10 @@ struct rm_spi_ts_platform_data {
 	int platform_id;
 	unsigned char *name_of_clock;
 	unsigned char *name_of_clock_con;
+/* wait to be implemented...
+	int gpio_sensor_select0;
+	int gpio_sensor_select1;
+*/
 };
 
 int rm_tch_spi_byte_write(unsigned char u8Addr, unsigned char u8Value);

@@ -44,7 +44,7 @@ int rm_tch_ctrl_clear_int(void)
 	if (g_stCtrl.bICVersion >= 0xD0)
 		return rm_tch_spi_byte_read(0x72, &flag);
 	else
-		return rm_tch_spi_byte_read(RM31080B1_REG_BANK0_02H, &flag);
+		return rm_tch_spi_byte_read(0x02, &flag);
 }
 
 int rm_tch_ctrl_scan_start(void)
@@ -108,24 +108,6 @@ void rm_tch_ctrl_init(void)
 }
 
 /*=============================================================================
-	Description:
-
-	Input:
-			N/A
-	Output:
-			N/A
-=============================================================================*/
-unsigned char rm_tch_ctrl_get_noise_mode(u8 *p)
-{
-	u32 u32Ret;
-	u32Ret = copy_to_user(p, &g_stCtrl.bfNoiseModeDetector, 1);
-	if (u32Ret != 0)
-		return 0;
-	return 1;
-}
-
-
-/*=============================================================================
 	Description: To transfer the value to HAL layer
 
 	Input:
@@ -168,28 +150,18 @@ void rm_tch_ctrl_get_parameter(void *arg)
 	g_stCtrl.bADCNumber = pPara[PARA_BASIC_LEN + 5];
 	g_stCtrl.bChannelNumberX = pPara[PARA_BASIC_LEN];
 	g_stCtrl.bChannelNumberY = pPara[PARA_BASIC_LEN + 1];
-	g_stCtrl.bChannelDetectorNum = pPara[PARA_BASIC_LEN + PARA_HARDWARE_LEN + 19];	/* Noise_Detector */
-	g_stCtrl.bChannelDetectorDummy = pPara[PARA_BASIC_LEN + PARA_HARDWARE_LEN + 20];	/* Noise_Detector */
 	g_stCtrl.u16DataLength = (g_stCtrl.bChannelNumberX + 2 + g_stCtrl.bADCNumber) * (g_stCtrl.bChannelNumberY);
-	g_stCtrl.bfNoiseMode = pPara[PARA_BASIC_LEN + PARA_HARDWARE_LEN + 14];
-	g_stCtrl.bNoiseRepeatTimes = pPara[PARA_BASIC_LEN + PARA_HARDWARE_LEN + 15];
 
-	g_stCtrl.bActiveRepeatTimes[0] = pPara[PARA_BASIC_LEN + PARA_HARDWARE_LEN + 4];	/* Noise_Detector */
-	g_stCtrl.bActiveRepeatTimes[1] = pPara[PARA_BASIC_LEN + PARA_HARDWARE_LEN + 5];	/* Noise_Detector */
+	g_stCtrl.bActiveRepeatTimes[0] = pPara[PARA_BASIC_LEN + PARA_HARDWARE_LEN + 4];
+	g_stCtrl.bActiveRepeatTimes[1] = pPara[PARA_BASIC_LEN + PARA_HARDWARE_LEN + 5];
 	g_stCtrl.bIdleRepeatTimes[0] = pPara[PARA_BASIC_LEN + PARA_HARDWARE_LEN + 6];
-	g_stCtrl.bIdleRepeatTimes[1] = pPara[PARA_BASIC_LEN + PARA_HARDWARE_LEN + 7];	/* Noise_Detector */
-	g_stCtrl.bSenseNumber = pPara[PARA_BASIC_LEN + 10];	/* Noise_Detector */
-	g_stCtrl.bfADFC = pPara[PARA_BASIC_LEN + 4];	/* Noise_Detector */
-	g_stCtrl.bfTHMode = pPara[PARA_BASIC_LEN + PARA_HARDWARE_LEN + 10];	/* Noise_Detector */
-	g_stCtrl.bfAnalogFilter = pPara[PARA_BASIC_LEN + PARA_HARDWARE_LEN + 8];	/* Noise_Detector */
-	g_stCtrl.bfSuspendReset = pPara[PARA_BASIC_LEN + PARA_HARDWARE_LEN + 27];
-	g_stCtrl.bPressureResolution = pPara[95];
-	g_stCtrl.bMTTouchThreshold = pPara[192];
+	g_stCtrl.bIdleRepeatTimes[1] = pPara[PARA_BASIC_LEN + PARA_HARDWARE_LEN + 7];
+	g_stCtrl.bSenseNumber = pPara[PARA_BASIC_LEN + 10];
+	g_stCtrl.bfTHMode = pPara[PARA_BASIC_LEN + PARA_HARDWARE_LEN + 10];
 	g_stCtrl.bTime2Idle = pPara[194];
 	g_stCtrl.bfPowerMode = pPara[195];
 	g_stCtrl.bDebugMessage = pPara[204];
 	g_stCtrl.bTimerTriggerScale = pPara[205];
-	g_stCtrl.bfSelftestData = pPara[207];
 
 	g_stCtrl.u16ResolutionX = ((u16) pPara[PARA_BASIC_LEN + 12]) << 8 | ((u16)pPara[PARA_BASIC_LEN + 11]);
 	g_stCtrl.u16ResolutionY = ((u16) pPara[PARA_BASIC_LEN + 14]) << 8 | ((u16)pPara[PARA_BASIC_LEN + 13]);

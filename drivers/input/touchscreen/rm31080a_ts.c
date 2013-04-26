@@ -37,8 +37,6 @@
 #include <linux/workqueue.h>
 #include <linux/wakelock.h> /* wakelock */
 #include <linux/regulator/consumer.h> /* regulator & voltage */
-#include <linux/pm_qos.h>	/* pm qos for CPU boosting */
-#include <linux/sysfs.h>	/* sysfs for pm qos attributes */
 #include <linux/clk.h> /* clock */
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
@@ -50,6 +48,8 @@
 #include <linux/spi/rm31080a_ts.h>
 #include <linux/spi/rm31080a_ctrl.h>
 
+#include <linux/pm_qos.h>	/* pm qos for CPU boosting */
+#include <linux/sysfs.h>	/* sysfs for pm qos attributes */
 #define CREATE_TRACE_POINTS
 #include <trace/events/touchscreen_raydium.h>
 
@@ -59,7 +59,6 @@
 /*#define ENABLE_CALC_QUEUE_COUNT*/
 #define ENABLE_SLOW_SCAN
 #define ENABLE_SMOOTH_LEVEL
-/*#define ENABLE_SUPPORT_4_7*/ /* for 4.7 inch display  */
 #define ENABLE_SPI_SETTING		0
 /* undef to disable CPU boost while leaving idle mode */
 #define NV_ENABLE_CPU_BOOST
@@ -119,7 +118,7 @@ struct timer_list ts_timer_triggle;
 static void init_ts_timer(void);
 static void ts_timer_triggle_function(unsigned long option);
 
-#define rm_printk(msg...)	do { dev_info(&g_spi->dev, msg); } while (0)
+#define rm_printk(msg...)		printk(msg)
 /*=============================================================================
 	STRUCTURE DECLARATION
 =============================================================================*/
@@ -528,9 +527,9 @@ void rm_tch_ctrl_enter_auto_mode(void)
 	rm_ctrl_set_idle(1);
 
 #if ( ENABLE_MANUAL_IDLE_MODE == 1)
-	rm_tch_spi_byte_write(RM31080_REG_09, 0x40);
+	rm_tch_spi_byte_write(0x09, 0x40);
 #else
-	rm_tch_spi_byte_write(RM31080_REG_09, 0x10 | 0x40);
+	rm_tch_spi_byte_write(0x09, 0x10 | 0x40);
 #endif
 }
 
@@ -539,12 +538,12 @@ void rm_tch_ctrl_leave_auto_mode(void)
 	g_stCtrl.bfIdleModeCheck |= 0x01;
 	/*Disable auto scan*/
 
+	rm_ctrl_set_idle(0);
+
 	if (g_stCtrl.bICVersion < 0xD0)
 		rm_set_repeat_times(g_stCtrl.bActiveRepeatTimes[0]);
 
-	rm_ctrl_set_idle(0);
-
-	rm_tch_spi_byte_write(RM31080_REG_09, 0x00);
+	rm_tch_spi_byte_write(0x09, 0x00);
 	if ((g_stCtrl.bDebugMessage & DEBUG_DRIVER) == DEBUG_DRIVER)
 		rm_printk("Leave Auto Scan Mode\n");
 }
@@ -759,6 +758,8 @@ static int rm_tch_cmd_process(u8 selCase, u8 *pCmdTbl, struct rm_tch_ts *ts)
 							clk_disable(ts->clk);
 					} else
 						ret = FAIL;
+				} else {
+					ret = FAIL;
 				}
 				break;
 			case KRL_CMD_SET_TIMER:
@@ -895,6 +896,21 @@ static u32 rm_tch_get_platform_id(u8 *p)
 	if (u32Ret != 0)
 		return 0;
 	return 1;
+}
+
+static u32 rm_tch_get_gpio_sensor_select(u8 *p)
+{
+	u32 u32Ret = 0;
+/* wait to be implemented...
+	struct rm_spi_ts_platform_data *pdata;
+	pdata = g_input_dev->dev.parent->platform_data;
+	u32Ret = gpio_set_value(pdata->gpio_sensor_select0) | (1 << gpio_set_value(pdata->gpio_sensor_select1));
+*/
+	u32Ret = copy_to_user(p, &u32Ret, sizeof(u32Ret));
+	if (u32Ret != 0)
+		return FAIL;
+
+	return OK;
 }
 
 /*=============================================================================*/
@@ -1156,7 +1172,6 @@ static void rm_watchdog_enable(unsigned char u8Enable)
 
 static void rm_watchdog_work_function(unsigned char scan_mode)
 {
-
 	if ((g_stTs.u8WatchDogEnable==0)||(g_stTs.bInitFinish==0)) {
 		return;
 	}
@@ -1175,7 +1190,6 @@ static void rm_watchdog_work_function(unsigned char scan_mode)
 				break;
 		}
 	}
-
 
 	if (g_stTs.u8WatchDogFlg) {
 		/*WATCH DOG RESET*/
@@ -1625,6 +1639,9 @@ static u32 rm_tch_get_variable(unsigned int index, unsigned int arg)
 		case RM_VARIABLE_PLATFORM_ID:
 			ret = rm_tch_get_platform_id((u8 *) arg);
 			break;
+		case RM_VARIABLE_GPIO_SELECT:
+			ret = rm_tch_get_gpio_sensor_select((u8 *) arg);
+			break;
 		default:
 			break;
 	}
@@ -1680,24 +1697,11 @@ static int rm31080_voltage_notifier_1v8(struct notifier_block *nb,
 static int rm31080_voltage_notifier_3v3(struct notifier_block *nb,
 					unsigned long event, void *ignored)
 {
-	int error;
-	struct rm_tch_ts *ts = input_get_drvdata(g_input_dev);
+	struct rm_tch_ts *ts;
+
+	ts = input_get_drvdata(g_input_dev);
 
 	rm_printk("rm31080 REGULATOR EVENT:0x%x\n", (unsigned int)event);
-
-	if (event & REGULATOR_EVENT_DISABLE) {
-		/* 1. 3v3 power down */
-		/* 2. wait 5ms */
-		usleep_range(5000, 6000);
-		/* 3. 1v8 power down */
-		error = regulator_disable(ts->regulator_1v8);
-		if (error < 0) {
-			dev_err(&g_spi->dev,
-				"raydium regulator 1v8 disable failed: %d\n",
-				error);
-			return NOTIFY_BAD;
-		}
-	}
 
 	return NOTIFY_OK;
 }
@@ -1848,9 +1852,8 @@ struct rm_tch_ts *rm_tch_input_init(struct device *dev, unsigned int irq,
 	input_dev->hint_events_per_packet = 256U;
 
 	input_set_drvdata(input_dev, ts);
-#ifdef NV_ENABLE_CPU_BOOST
 	input_set_capability(input_dev, EV_MSC, MSC_ACTIVITY);
-#endif
+
 	__set_bit(EV_ABS, input_dev->evbit);
 	__set_bit(ABS_X, input_dev->absbit);
 	__set_bit(ABS_Y, input_dev->absbit);
@@ -2018,9 +2021,6 @@ static long dev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			break;
 		case RM_IOCTL_READ_RAW_DATA:
 			ret = rm_tch_queue_read_raw_data((u8 *) arg, index);
-			break;
-		case RM_IOCTL_NOISE_CHECK:
-			ret = rm_tch_ctrl_get_noise_mode((u8 *) arg);
 			break;
 		case RM_IOCTL_GET_PARAMETER:
 			rm_tch_ctrl_get_parameter((void *)arg);
