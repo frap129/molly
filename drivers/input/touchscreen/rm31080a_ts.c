@@ -750,17 +750,18 @@ static int rm_tch_cmd_process(u8 selCase, u8 *pCmdTbl, struct rm_tch_ts *ts)
 			case KRL_CMD_CONFIG_CLK:
 				/*rm_printk("KRL_CMD_CONFIG_CLK : %d - %d\n",pCmdTbl[_SUB_CMD],pCmdTbl[_DATA]);*/
 				ret = OK;
-				if (ts && ts->clk) {
-					if (pCmdTbl[_SUB_CMD] == KRL_SUB_CMD_SET_CLK) {
+/* Temporarily solving external clk issue for NV for different kind of clk source */
+				if (pCmdTbl[_SUB_CMD] == KRL_SUB_CMD_SET_CLK) {
+					if (ts && ts->clk) {
 						if (pCmdTbl[_DATA])
 							clk_enable(ts->clk);
 						else
 							clk_disable(ts->clk);
-					} else
-						ret = FAIL;
-				} else {
+					} else {
+						dev_err(&g_spi->dev, "%s: In KRL_CMD_CONFIG_CLK handler got no handler for clk!\n", __func__);
+					}
+				} else
 					ret = FAIL;
-				}
 				break;
 			case KRL_CMD_SET_TIMER:
 				/*rm_printk("KRL_CMD_SET_TIMER : %d\n",pCmdTbl[_SUB_CMD]);*/
@@ -1788,6 +1789,38 @@ static const struct dev_pm_ops rm_tch_pm_ops = {
 #endif			/*CONFIG_HAS_EARLYSUSPEND*/
 #endif			/*CONFIG_PM*/
 
+/* NVIDIA 20121026 */
+/* support to disable power and clock when display is off */
+static int rm_tch_input_enable(struct input_dev *in_dev)
+{
+	int error = 0;
+
+#ifdef CONFIG_PM
+	struct rm_tch_ts *ts = input_get_drvdata(in_dev);
+
+	error = rm_tch_resume(ts->dev);
+	if (error)
+		dev_err(ts->dev, "%s: failed\n", __func__);
+#endif
+
+	return error;
+}
+
+static int rm_tch_input_disable(struct input_dev *in_dev)
+{
+	int error = 0;
+
+#ifdef CONFIG_PM
+	struct rm_tch_ts *ts = input_get_drvdata(in_dev);
+
+	error = rm_tch_suspend(ts->dev);
+	if (error)
+		dev_err(ts->dev, "%s: failed\n", __func__);
+#endif
+
+	return error;
+}
+
 static void rm_tch_set_input_resolution(unsigned int x, unsigned int y)
 {
 	input_set_abs_params(g_input_dev, ABS_X, 0, x - 1, 0, 0);
@@ -1847,6 +1880,9 @@ struct rm_tch_ts *rm_tch_input_init(struct device *dev, unsigned int irq,
 	input_dev->dev.parent = dev;
 	input_dev->id.bustype = bops->bustype;
 
+	input_dev->enable = rm_tch_input_enable;
+	input_dev->disable = rm_tch_input_disable;
+	input_dev->enabled = true;
 	input_dev->open = rm_tch_input_open;
 	input_dev->close = rm_tch_input_close;
 	input_dev->hint_events_per_packet = 256U;
