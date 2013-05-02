@@ -42,6 +42,8 @@
 
 #include "inv_gyro.h"
 
+#define LPA_ENABLE		0
+
 static struct inv_reg_map_s chip_reg = {
 	.who_am_i		= 0x75,
 	.sample_rate_div	= 0x19,
@@ -156,6 +158,19 @@ int inv_i2c_single_write_base(struct inv_gyro_state_s *st,
 
 	return 0;
 }
+
+static int nvi_pm_war(struct inv_gyro_state_s *inf,
+		      unsigned char pm1, unsigned char pm2)
+{
+	int err;
+
+	err = inv_i2c_single_write(inf, inf->reg->pwr_mgmt_1, 0);
+	err |= inv_i2c_single_write(inf, inf->reg->pwr_mgmt_2, 0);
+	err |= inv_i2c_single_write(inf, inf->reg->pwr_mgmt_2, pm2);
+	err |= inv_i2c_single_write(inf, inf->reg->pwr_mgmt_1, pm1);
+	return err;
+}
+
 /**
  *  inv_clear_kfifo() - clear time stamp fifo
  *  @st:	Device driver instance.
@@ -170,50 +185,40 @@ void inv_clear_kfifo(struct inv_gyro_state_s *st)
 
 static int set_power_itg(struct inv_gyro_state_s *st, unsigned char power_on)
 {
-	struct inv_reg_map_s *reg;
-	unsigned char data;
+	unsigned char pm1;
+	unsigned char pm2;
+	unsigned char clk_src;
 	int result;
 
-	reg = st->reg;
 	if (power_on)
-		data = 0;
+		pm1 = (st->chip_config.lpa_mode << 5);
 	else
-		data = BIT_SLEEP;
-	data |= (st->chip_config.lpa_mode << 5);
+		pm1 = BIT_SLEEP;
+	if (st->chip_config.lpa_mode)
+		pm2 = (st->chip_config.lpa_freq << 6);
+	else
+		pm2 = 0;
 	if (st->chip_config.gyro_enable) {
-		result = inv_i2c_single_write(st,
-			reg->pwr_mgmt_1, data | INV_CLK_PLL);
-		if (result)
-			return result;
-
-		st->chip_config.clk_src = INV_CLK_PLL;
+		pm1 |= INV_CLK_PLL;
+		clk_src = INV_CLK_PLL;
 	} else {
-		result = inv_i2c_single_write(st,
-			reg->pwr_mgmt_1, data | INV_CLK_INTERNAL);
-		if (result)
-			return result;
-
-		st->chip_config.clk_src = INV_CLK_INTERNAL;
+		pm1 |= INV_CLK_INTERNAL;
+		clk_src = INV_CLK_INTERNAL;
+		pm2 |= BIT_PWR_GYRO_STBY;
 	}
-
-	if (power_on) {
-		mdelay(POWER_UP_TIME);
-		data = 0;
-		if (0 == st->chip_config.accl_enable)
-			data |= BIT_PWR_ACCL_STBY;
-		if (0 == st->chip_config.gyro_enable)
-			data |= BIT_PWR_GYRO_STBY;
-		data |= (st->chip_config.lpa_freq << 6);
-		result = inv_i2c_single_write(st, reg->pwr_mgmt_2, data);
-		if (result)
-			return result;
-
-		mdelay(POWER_UP_TIME);
-		st->chip_config.is_asleep = 0;
-	} else {
-		st->chip_config.is_asleep = 1;
+	if (0 == st->chip_config.accl_enable)
+		pm2 |= BIT_PWR_ACCL_STBY;
+	result = nvi_pm_war(st, pm1, pm2);
+	if (!result) {
+		st->chip_config.clk_src = clk_src;
+		if (power_on) {
+			mdelay(POWER_UP_TIME);
+			st->chip_config.is_asleep = 0;
+		} else {
+			st->chip_config.is_asleep = 1;
+		}
 	}
-	return 0;
+	return result;
 }
 
 /**
@@ -247,13 +252,13 @@ static int reset_fifo_itg(struct inv_gyro_state_s *st)
 		return result;
 	}
 
-	/* disable the sensor output to FIFO */
-	result = inv_i2c_single_write(st, reg->fifo_en, 0);
+	/* disable fifo reading */
+	result = inv_i2c_single_write(st, reg->user_ctrl, 0);
 	if (result)
 		goto reset_fifo_fail;
 
-	/* disable fifo reading */
-	result = inv_i2c_single_write(st, reg->user_ctrl, 0);
+	/* disable the sensor output to FIFO */
+	result = inv_i2c_single_write(st, reg->fifo_en, 0);
 	if (result)
 		goto reset_fifo_fail;
 
@@ -300,14 +305,6 @@ static int reset_fifo_itg(struct inv_gyro_state_s *st)
 				return result;
 		}
 
-		/* enable FIFO reading and I2C master interface*/
-		val = BIT_FIFO_EN;
-		if (st->chip_config.compass_enable)
-			val |= BIT_I2C_MST_EN;
-		result = inv_i2c_single_write(st, reg->user_ctrl, val);
-		if (result)
-			goto reset_fifo_fail;
-
 		/* enable sensor output to FIFO */
 		val = 0;
 		if (st->chip_config.gyro_fifo_enable)
@@ -317,6 +314,15 @@ static int reset_fifo_itg(struct inv_gyro_state_s *st)
 		result = inv_i2c_single_write(st, reg->fifo_en, val);
 		if (result)
 			goto reset_fifo_fail;
+
+		/* enable FIFO reading and I2C master interface*/
+		val = BIT_FIFO_EN;
+		if (st->chip_config.compass_enable)
+			val |= BIT_I2C_MST_EN;
+		result = inv_i2c_single_write(st, reg->user_ctrl, val);
+		if (result)
+			goto reset_fifo_fail;
+
 	}
 
 	return 0;
@@ -1027,6 +1033,7 @@ static ssize_t inv_lpa_mode_store(struct device *dev,
 				  struct device_attribute *attr,
 				  const char *buf, size_t count)
 {
+#if LPA_ENABLE
 	struct inv_gyro_state_s *st = dev_get_drvdata(dev);
 	unsigned long result, lpa_mode;
 	unsigned char d;
@@ -1052,6 +1059,7 @@ static ssize_t inv_lpa_mode_store(struct device *dev,
 		return result;
 
 	st->chip_config.lpa_mode = lpa_mode;
+#endif /* LPA_ENABLE */
 	return count;
 }
 
@@ -1062,6 +1070,7 @@ static ssize_t inv_lpa_freq_store(struct device *dev,
 				  struct device_attribute *attr,
 				  const char *buf, size_t count)
 {
+#if LPA_ENABLE
 	struct inv_gyro_state_s *st = dev_get_drvdata(dev);
 	unsigned long result, lpa_freq;
 	unsigned char d;
@@ -1089,6 +1098,7 @@ static ssize_t inv_lpa_freq_store(struct device *dev,
 		return result;
 
 	st->chip_config.lpa_freq = lpa_freq;
+#endif /* LPA_ENABLE */
 	return count;
 }
 
@@ -2546,6 +2556,7 @@ static int inv_check_chip_type(struct inv_gyro_state_s *st,
 		st->has_compass = 0;
 	st->chip_config.gyro_enable = 1;
 	/*reset register to power up default*/
+	nvi_pm_war(st, 0, 0);
 	result = inv_i2c_single_write(st, reg->pwr_mgmt_1, BIT_RESET);
 	if (result)
 		return result;
@@ -2827,6 +2838,7 @@ out_close_sysfs:
 out_free_kfifo:
 	kfifo_free(&st->trigger.timestamps);
 out_free:
+	nvi_pm_war(st, 0, 0);
 	result = inv_i2c_single_write(st, st->reg->pwr_mgmt_1, BIT_RESET);
 	if (st->inv_regulator.regulator_vlogic &&
 			st->inv_regulator.regulator_vdd) {
@@ -2849,6 +2861,7 @@ static int inv_mod_remove(struct i2c_client *client)
 		dev_err(&client->adapter->dev, "%s could not be turned off.\n",
 			st->hw->name);
 	remove_sysfs_interfaces(st);
+	nvi_pm_war(st, 0, 0);
 	result = inv_i2c_single_write(st, st->reg->pwr_mgmt_1, BIT_RESET);
 	kfifo_free(&st->trigger.timestamps);
 	free_irq(client->irq, st);
