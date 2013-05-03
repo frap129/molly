@@ -1084,7 +1084,7 @@ static int __init dalmore_fixed_regulator_init(void)
 {
 	struct board_info board_info;
 
-	if (!machine_is_dalmore())
+	if (!machine_is_dalmore() && !machine_is_molly())
 		return 0;
 
 	tegra_get_board_info(&board_info);
