@@ -332,6 +332,14 @@ static int bq2419x_set_charging_current(struct regulator_dev *rdev,
 			bq_charger->update_status
 				(bq_charger->status, 1);
 	}
+
+	if (bq_charger->ac_online) {
+		if ((bq_charger->in_current_limit == 1500))
+			bq_charger->ac.type = POWER_SUPPLY_TYPE_USB_CDP;
+		else
+			bq_charger->ac.type = POWER_SUPPLY_TYPE_MAINS;
+	}
+
 	if (ret == 0) {
 		if (bq_charger->use_mains)
 			power_supply_changed(&bq_charger->ac);
