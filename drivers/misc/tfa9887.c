@@ -1341,6 +1341,7 @@ static const struct regmap_config tfa9887_regmap = {
 	.volatile_reg = tfa9887_volatile_register,
 	.readable_reg = tfa9887_readable_register,
 	.cache_type = REGCACHE_NONE,
+	.name = "tfa9887",
 };
 
 static const struct regmap_config tfa9887_regmap_byte = {
@@ -1349,6 +1350,7 @@ static const struct regmap_config tfa9887_regmap_byte = {
         .volatile_reg = tfa9887_volatile_register,
         .readable_reg = tfa9887_readable_register,
         .cache_type = REGCACHE_NONE,
+        .name = "tfa9887b",
 };
 static ssize_t tfa9887_cal_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
@@ -1515,19 +1517,19 @@ static __devinit int tfa9887R_i2c_probe(struct i2c_client *i2c,
 	tfa9887_kobj = kobject_create_and_add("tfa9887", kernel_kobj);
 
 	ret = sysfs_create_file(tfa9887_kobj, &tfa9887_config);
-	printk("tfa9887_add_sysfs ret=%d\n", ret);
+	//printk("tfa9887_add_sysfs ret=%d\n", ret);
 	if (ret != 0) {
                 dev_err(&i2c->dev, "Failed to add sysfs: %d\n", ret);
 		goto err;
 	}
 	ret = sysfs_create_file(tfa9887_kobj, &tfa9887_cal);
-	printk("tfa9887_add_sysfs ret=%d\n", ret);
+	//printk("tfa9887_add_sysfs ret=%d\n", ret);
 	if (ret != 0) {
                 dev_err(&i2c->dev, "Failed to add sysfs: %d\n", ret);
 		goto err;
 	}
 	ret = sysfs_create_file(tfa9887_kobj, &tfa9887_vol);
-	printk("tfa9887_add_sysfs ret=%d\n", ret);
+	//printk("tfa9887_add_sysfs ret=%d\n", ret);
 	if (ret != 0) {
                 dev_err(&i2c->dev, "Failed to add sysfs: %d\n", ret);
 		goto err;
