@@ -277,6 +277,10 @@ static struct regulator_consumer_supply palmas_ldo3_supply[] = {
 	REGULATOR_SUPPLY("pwrdet_mipi", NULL),
 };
 
+static struct regulator_consumer_supply palmas_ldo4_supply[] = {
+        REGULATOR_SUPPLY("vpp_fuse", NULL),
+};
+
 static struct regulator_consumer_supply palmas_ldo5_supply[] = {
 	REGULATOR_SUPPLY("avdd_hdmi_pll", "tegradc.1"),
 };
@@ -328,6 +332,7 @@ PALMAS_PDATA_INIT(smps9, 2800,  2800, NULL, 0, 0, 0, NORMAL, 0);
 PALMAS_PDATA_INIT(smps10, 5000,  5000, NULL, 0, 0, 0, 0, 0);
 PALMAS_PDATA_INIT(ldo2, 2800,  2800, NULL, 0, 0, 1, 0, 0);
 PALMAS_PDATA_INIT(ldo3, 1200,  1200, NULL, 1, 1, 1, 0, 0);
+PALMAS_PDATA_INIT(ldo4, 1800, 1800, NULL, 0, 0, 1, 0, 0);
 PALMAS_PDATA_INIT(ldo5, 1200,  1200, NULL, 0, 0, 1, 0, 0);
 PALMAS_PDATA_INIT(ldo6, 2850,  2850, NULL, 0, 0, 1, 0, 0);
 PALMAS_PDATA_INIT(ldo8, 900,  900, NULL, 1, 1, 1, 0, 0);
@@ -351,7 +356,7 @@ static struct regulator_init_data *roth_reg_data[PALMAS_NUM_REGS] = {
 	NULL,	/* LDO1 */
 	PALMAS_REG_PDATA(ldo2),
 	PALMAS_REG_PDATA(ldo3),
-	NULL,
+	PALMAS_REG_PDATA(ldo4),
 	NULL,
 	PALMAS_REG_PDATA(ldo6),
 	NULL,
