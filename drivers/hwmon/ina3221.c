@@ -428,7 +428,7 @@ static int ina3221_cpufreq_notify(struct notifier_block *nb,
 	struct i2c_client *client = data->client;
 	if (event == CPUFREQ_POSTCHANGE) {
 		mutex_lock(&data->mutex);
-		if (data->is_suspended) {
+		if (data->is_suspended || data->shutdown_complete) {
 			mutex_unlock(&data->mutex);
 			return 0;
 		}
@@ -461,6 +461,10 @@ static int ina3221_hotplug_notify(struct notifier_block *nb,
 	int cpufreq = 0;
 	if (event == CPU_ONLINE || event == CPU_DEAD) {
 		mutex_lock(&data->mutex);
+		if (data->is_suspended || data->shutdown_complete) {
+			mutex_unlock(&data->mutex);
+			return 0;
+		}
 		cpufreq = cpufreq_quick_get(0);
 		cpus = num_online_cpus();
 		DEBUG_INA3221(("INA3221 hotplug notified cpufreq:%d cpus:%d\n",
