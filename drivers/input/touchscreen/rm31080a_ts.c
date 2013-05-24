@@ -750,7 +750,19 @@ static int rm_tch_cmd_process(u8 selCase, u8 *pCmdTbl, struct rm_tch_ts *ts)
 			case KRL_CMD_CONFIG_CLK:
 				/*rm_printk("KRL_CMD_CONFIG_CLK : %d - %d\n",pCmdTbl[_SUB_CMD],pCmdTbl[_DATA]);*/
 				ret = OK;
-/* Temporarily solving external clk issue for NV for different kind of clk source */
+/* Temporarily solving external clk issue for NV for different kind of clk source
+				if (ts && ts->clk) {
+					if (pCmdTbl[_SUB_CMD] == KRL_SUB_CMD_SET_CLK) {
+						if (pCmdTbl[_DATA])
+							clk_enable(ts->clk);
+						else
+							clk_disable(ts->clk);
+					} else
+						ret = FAIL;
+				} else {
+					ret = FAIL;
+				}
+*/
 				if (pCmdTbl[_SUB_CMD] == KRL_SUB_CMD_SET_CLK) {
 					if (ts && ts->clk) {
 						if (pCmdTbl[_DATA])
@@ -1400,7 +1412,6 @@ static ssize_t rm_tch_smooth_level_handler(const char *buf, size_t count)
 		return count;
 
 	ret = (ssize_t) count;
-
 	error = kstrtoul(buf, 10, &val);
 	if (error) {
 		ret = error;
@@ -2110,12 +2121,12 @@ static void init_ts_timer(void)
 	init_timer(&ts_timer_triggle);
 	ts_timer_triggle.function = ts_timer_triggle_function;
 	ts_timer_triggle.data = ((unsigned long) 0);
-	ts_timer_triggle.expires = jiffies + TS_TIMER_PERIOD;
+	ts_timer_triggle.expires = jiffies + TS_TIMER_PERIOD;//msecs_to_jiffies(10);/*100*HZ;*/
 }
 static void ts_timer_triggle_function(unsigned long option)
 {
 	queue_work(g_stTs.rm_timer_workqueue, &g_stTs.rm_timer_work);
-	ts_timer_triggle.expires = jiffies + TS_TIMER_PERIOD;
+	ts_timer_triggle.expires = jiffies + TS_TIMER_PERIOD;//msecs_to_jiffies(10);/*100*HZ;*/
 	add_timer(&ts_timer_triggle);
 }
 
