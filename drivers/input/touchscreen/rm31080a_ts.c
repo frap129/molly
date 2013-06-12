@@ -100,13 +100,6 @@ enum RM_SLOW_SCAN_LEVELS {
 #define RM_SMOOTH_LEVEL_MAX			4
 #endif
 
-#ifdef NV_ENABLE_CPU_BOOST
-/* disable CPU boosting if autoscan mode is disabled */
-#ifndef ENABLE_AUTO_SCAN
-#undef NV_ENABLE_CPU_BOOST
-#endif
-#endif
-
 #define RM_WINTEK_7_CHANNEL_X 30
 
 #define TS_TIMER_PERIOD		HZ
