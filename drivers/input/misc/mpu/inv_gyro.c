@@ -1,6 +1,6 @@
 /*
 * Copyright (C) 2012 Invensense, Inc.
-* Copyright (c) 2013, NVIDIA CORPORATION.  All rights reserved.
+* Copyright (c) 2013 NVIDIA CORPORATION.  All rights reserved.
 *
 * This software is licensed under the terms of the GNU General Public
 * License version 2, as published by the Free Software Foundation, and
@@ -509,6 +509,8 @@ int nvi_int_enable_wr(struct inv_gyro_state_s *inf, bool enable)
 					 __func__, int_enable);
 		}
 	}
+	if (!enable)
+		synchronize_irq(inf->i2c->irq);
 	return err;
 }
 
@@ -925,6 +927,9 @@ int nvi_pm_wr(struct inv_gyro_state_s *inf,
 	return err_t;
 }
 
+static int nvi_reset(struct inv_gyro_state_s *inf,
+		     bool reset_fifo, bool reset_i2c);
+
 /**
  * @param inf
  * @param pm_req: call with one of the following:
@@ -946,7 +951,7 @@ static int nvi_pm(struct inv_gyro_state_s *inf, int pm_req)
 	u8 lpa;
 	int pm;
 	int err = 0;
-
+	BUG_ON(!mutex_is_locked(&inf->mutex));
 	lpa = inf->hw.lposc_clksel;
 	if ((pm_req == NVI_PM_OFF_FORCE) || inf->suspend) {
 		pwr_mgmt_1 = BIT_SLEEP | inf->reg->temp_dis;
@@ -1022,6 +1027,17 @@ static int nvi_pm(struct inv_gyro_state_s *inf, int pm_req)
 		   (pwr_mgmt_2 != (inf->hw.pwr_mgmt_2 &
 				   (BIT_PWR_ACCL_STBY | BIT_PWR_GYRO_STBY)))) {
 		nvi_int_enable_wr(inf, false);
+		if (pm == NVI_PM_OFF) {
+			switch (inf->pm) {
+			case NVI_PM_STDBY:
+			case NVI_PM_ERR:
+			case NVI_PM_OFF_FORCE:
+				break;
+			default:
+				nvi_reset(inf, true, false);
+				break;
+			}
+		}
 		inf->gyro_start_ts = 0;
 		if ((!(inf->hw.pwr_mgmt_1 & (BIT_SLEEP | inf->reg->cycle))) &&
 			     (pm < NVI_PM_ON) && (inf->pm > NVI_PM_ON_CYCLE)) {
@@ -1062,7 +1078,9 @@ static int nvi_pm(struct inv_gyro_state_s *inf, int pm_req)
 
 static void nvi_pm_exit(struct inv_gyro_state_s *inf)
 {
+	mutex_lock(&inf->mutex);
 	nvi_pm(inf, NVI_PM_OFF_FORCE);
+	mutex_unlock(&inf->mutex);
 	nvi_vreg_exit(inf);
 }
 
@@ -1072,7 +1090,9 @@ static int nvi_pm_init(struct inv_gyro_state_s *inf)
 
 	nvi_vreg_init(inf);
 	inf->pm = NVI_PM_ERR;
+	mutex_lock(&inf->mutex);
 	err = nvi_pm(inf, NVI_PM_ON);
+	mutex_unlock(&inf->mutex);
 	return err;
 }
 
@@ -1258,8 +1278,8 @@ static void nvi_aux_dbg(struct inv_gyro_state_s *inf, char *tag, int val)
 static void nvi_aux_read(struct inv_gyro_state_s *inf)
 {
 	struct aux_port *ap;
-	long long timestamp1;
-	long long timestamp2;
+	s64 timestamp1;
+	s64 timestamp2;
 	unsigned int i;
 	unsigned int len;
 	u8 *p;
@@ -1372,9 +1392,6 @@ static int nvi_aux_port_en(struct inv_gyro_state_s *inf,
 	}
 	return err;
 }
-
-static int nvi_reset(struct inv_gyro_state_s *inf,
-		     bool reset_fifo, bool reset_i2c);
 
 static int nvi_aux_enable(struct inv_gyro_state_s *inf, bool enable)
 {
@@ -1664,22 +1681,22 @@ static int nvi_aux_mpu_call_pre(struct inv_gyro_state_s *inf, int port)
 	if ((port < 0) || (port >= AUX_PORT_SPECIAL))
 		return -EINVAL;
 
+	BUG_ON(!mutex_is_locked(&inf->mutex));
 	if (inf->shutdown || inf->suspend)
 		return -EPERM;
 
 	if (!inf->aux.port[port].nmp.addr)
 		return -EINVAL;
 
-	mutex_lock(&inf->mutex);
 	return 0;
 }
 
 static int nvi_aux_mpu_call_post(struct inv_gyro_state_s *inf,
 				 char *tag, int err)
 {
+	BUG_ON(!mutex_is_locked(&inf->mutex));
 	if (err < 0)
 		err = -EBUSY;
-	mutex_unlock(&inf->mutex);
 	nvi_aux_dbg(inf, tag, err);
 	return err;
 }
@@ -1706,10 +1723,12 @@ int nvi_mpu_dev_valid(struct nvi_mpu_port *nmp, u8 *data)
 	if ((nmp->addr & BIT_I2C_READ) && (data == NULL))
 		return -EINVAL;
 
-	if (inf->shutdown || inf->suspend)
-		return -EPERM;
-
 	mutex_lock(&inf->mutex);
+	if (inf->shutdown || inf->suspend) {
+		mutex_unlock(&inf->mutex);
+		return -EPERM;
+	}
+
 	nvi_pm(inf, NVI_PM_ON);
 	err = nvi_aux_dev_valid(inf, nmp, data);
 	nvi_pm(inf, NVI_PM_AUTO);
@@ -1739,14 +1758,17 @@ int nvi_mpu_port_alloc(struct nvi_mpu_port *nmp)
 	if (!(nmp->ctrl & BITS_I2C_SLV_CTRL_LEN))
 		return -EINVAL;
 
-	if (inf->shutdown || inf->suspend)
-		return -EPERM;
-
 	mutex_lock(&inf->mutex);
+	if (inf->shutdown || inf->suspend) {
+		mutex_unlock(&inf->mutex);
+		return -EPERM;
+	}
+
 	nvi_pm(inf, NVI_PM_ON);
 	err = nvi_aux_port_alloc(inf, nmp, -1);
 	nvi_pm(inf, NVI_PM_AUTO);
 	err = nvi_aux_mpu_call_post(inf, "nvi_mpu_port_alloc err/port: ", err);
+	mutex_unlock(&inf->mutex);
 	return err;
 }
 EXPORT_SYMBOL(nvi_mpu_port_alloc);
@@ -1765,14 +1787,18 @@ int nvi_mpu_port_free(int port)
 		return -EAGAIN;
 	}
 
+	mutex_lock(&inf->mutex);
 	err = nvi_aux_mpu_call_pre(inf, port);
-	if (err)
+	if (err) {
+		mutex_unlock(&inf->mutex);
 		return err;
+	}
 
 	nvi_pm(inf, NVI_PM_ON);
 	err = nvi_aux_port_free(inf, port);
 	nvi_pm(inf, NVI_PM_AUTO);
 	err = nvi_aux_mpu_call_post(inf, "nvi_mpu_port_free err: ", err);
+	mutex_unlock(&inf->mutex);
 	return err;
 }
 EXPORT_SYMBOL(nvi_mpu_port_free);
@@ -1792,14 +1818,18 @@ int nvi_mpu_enable(int port, bool enable, bool fifo_enable)
 		return -EAGAIN;
 	}
 
+	mutex_lock(&inf->mutex);
 	err = nvi_aux_mpu_call_pre(inf, port);
-	if (err)
+	if (err) {
+		mutex_unlock(&inf->mutex);
 		return err;
+	}
 
 	nvi_pm(inf, NVI_PM_ON);
 	err = nvi_aux_port_enable(inf, port, enable, fifo_enable);
 	nvi_pm(inf, NVI_PM_AUTO);
 	err = nvi_aux_mpu_call_post(inf, "nvi_mpu_enable err: ", err);
+	mutex_unlock(&inf->mutex);
 	return err;
 }
 EXPORT_SYMBOL(nvi_mpu_enable);
@@ -1819,9 +1849,12 @@ int nvi_mpu_delay_ms(int port, u8 delay_ms)
 		return -EAGAIN;
 	}
 
+	mutex_lock(&inf->mutex);
 	err = nvi_aux_mpu_call_pre(inf, port);
-	if (err)
+	if (err) {
+		mutex_unlock(&inf->mutex);
 		return err;
+	}
 
 	if (inf->hw.i2c_slv_ctrl[port] & BIT_SLV_EN) {
 		err = nvi_aux_delay(inf, port, delay_ms);
@@ -1830,6 +1863,7 @@ int nvi_mpu_delay_ms(int port, u8 delay_ms)
 		inf->aux.port[port].nmp.delay_ms = delay_ms;
 	}
 	err = nvi_aux_mpu_call_post(inf, "nvi_mpu_delay_ms err: ", err);
+	mutex_unlock(&inf->mutex);
 	return err;
 }
 EXPORT_SYMBOL(nvi_mpu_delay_ms);
@@ -1849,14 +1883,18 @@ int nvi_mpu_delay_us(int port, unsigned long delay_us)
 		return -EAGAIN;
 	}
 
+	mutex_lock(&inf->mutex);
 	err = nvi_aux_mpu_call_pre(inf, port);
-	if (err)
+	if (err) {
+		mutex_unlock(&inf->mutex);
 		return err;
+	}
 
 	inf->aux.port[port].nmp.delay_us = delay_us;
 	if (inf->hw.i2c_slv_ctrl[port] & BIT_SLV_EN)
 		err = nvi_global_delay(inf);
 	err = nvi_aux_mpu_call_post(inf, "nvi_mpu_delay_us err: ", err);
+	mutex_unlock(&inf->mutex);
 	return err;
 }
 EXPORT_SYMBOL(nvi_mpu_delay_us);
@@ -1870,9 +1908,12 @@ int nvi_mpu_data_out(int port, u8 data_out)
 	if (inf == NULL)
 		return -EAGAIN;
 
+	mutex_lock(&inf->mutex);
 	err = nvi_aux_mpu_call_pre(inf, port);
-	if (err)
+	if (err) {
+		mutex_unlock(&inf->mutex);
 		return err;
+	}
 
 	if (inf->hw.i2c_slv_ctrl[port] & BIT_SLV_EN) {
 		err = nvi_aux_port_data_out(inf, port, data_out);
@@ -1901,14 +1942,17 @@ int nvi_mpu_bypass_request(bool enable)
 		return -EAGAIN;
 	}
 
-	if (inf->shutdown || inf->suspend)
-		return -EPERM;
-
 	mutex_lock(&inf->mutex);
+	if (inf->shutdown || inf->suspend) {
+		mutex_unlock(&inf->mutex);
+		return -EPERM;
+	}
+
 	nvi_pm(inf, NVI_PM_ON);
 	err = nvi_aux_bypass_request(inf, enable);
 	nvi_pm(inf, NVI_PM_AUTO);
 	err = nvi_aux_mpu_call_post(inf, "nvi_mpu_bypass_request err: ", err);
+	mutex_unlock(&inf->mutex);
 	return err;
 }
 EXPORT_SYMBOL(nvi_mpu_bypass_request);
@@ -1926,14 +1970,17 @@ int nvi_mpu_bypass_release(void)
 		return 0;
 	}
 
-	if (inf->shutdown || inf->suspend)
-		return 0;
-
 	mutex_lock(&inf->mutex);
+	if (inf->shutdown || inf->suspend) {
+		mutex_unlock(&inf->mutex);
+		return 0;
+	}
+
 	nvi_pm(inf, NVI_PM_ON);
 	nvi_aux_bypass_release(inf);
 	nvi_pm(inf, NVI_PM_AUTO);
 	nvi_aux_mpu_call_post(inf, "nvi_mpu_bypass_release", 0);
+	mutex_unlock(&inf->mutex);
 	return 0;
 }
 EXPORT_SYMBOL(nvi_mpu_bypass_release);
@@ -3358,10 +3405,12 @@ static irqreturn_t nvi_irq_thread(int irq, void *dev_id)
 	if ((inf->hw.pwr_mgmt_1 & inf->reg->cycle) || (inf->hw.int_enable &
 						       BIT_MOT_EN)) {
 		if (inf->hw.int_enable & BIT_MOT_EN) {
+			mutex_lock(&inf->mutex);
 			nvi_pm(inf, NVI_PM_ON);
 			nvi_motion_detect_enable(inf, 0);
 			nvi_int_enable_wr(inf, true);
 			nvi_pm(inf, NVI_PM_AUTO);
+			mutex_unlock(&inf->mutex);
 			if (inf->chip_config.mot_enable == NVI_MOT_DBG)
 				pr_info("%s motion detect off\n", __func__);
 		}
@@ -3586,10 +3635,36 @@ nvi_irq_thread_exit_reset:
 static irqreturn_t nvi_irq_handler(int irq, void *dev_id)
 {
 	struct inv_gyro_state_s *inf;
-	long long timestamp;
-
+	s64 timestamp;
 	inf = (struct inv_gyro_state_s *)dev_id;
 	spin_lock(&inf->time_stamp_lock);
+	++(inf->num_int);
+	if (inf->num_int >= 1000) {
+		timestamp = nvi_ts_ns();
+		/*
+		 * If it takes less than half the time the shortest possible
+		 * time to get 1000 interrupts, reset gyro
+		 *
+		 * minimum time in us to get 1000 interrupts =
+		 * 1000 interrupts / 1 / NVI_DELAY_US_MIN
+		 * = NVI_DELAY_US_MIN * 1000
+		 */
+		if ((timestamp >= inf->last_1000)
+			&& (((timestamp - inf->last_1000) / ONE_K_HZ) <
+				(NVI_DELAY_US_MIN * 500))
+			) {
+			dev_err(inf->inv_dev, "The number of interrupts from " \
+				"gyro is excessive. Scheduling " \
+				"disable/enable\n");
+			schedule_work(&inf->work_struct);
+			if (!inf->irq_disabled) {
+				disable_irq_nosync(irq);
+				inf->irq_disabled = true;
+			}
+		}
+		inf->num_int = 0;
+		inf->last_1000 = timestamp;
+	}
 	if (inf->hw.user_ctrl & BIT_FIFO_EN) {
 		timestamp = nvi_ts_ns();
 		kfifo_in(&inf->trigger.timestamps, &timestamp, 1);
@@ -3696,8 +3771,10 @@ static ssize_t nvi_data_show(struct device *dev,
 		return sprintf(buf, "version=%u\n", NVI_VERSION);
 
 	case NVI_DATA_INFO_RESET:
+		mutex_lock(&inf->mutex);
 		err = nvi_pm(inf, NVI_PM_OFF_FORCE);
 		err |= nvi_pm(inf, NVI_PM_AUTO);
+		mutex_unlock(&inf->mutex);
 		if (err)
 			return sprintf(buf, "reset ERR\n");
 		else
@@ -4284,7 +4361,9 @@ static int nvi_dev_init(struct inv_gyro_state_s *inf,
 		break;
 	}
 
+	mutex_lock(&inf->mutex);
 	nvi_pm(inf, NVI_PM_OFF);
+	mutex_unlock(&inf->mutex);
 	return err;
 }
 
@@ -4292,11 +4371,20 @@ static int nvi_suspend(struct device *dev)
 {
 	struct inv_gyro_state_s *inf;
 	int err;
-
+	unsigned long flags;
 	inf = dev_get_drvdata(dev);
+
+	spin_lock_irqsave(&inf->time_stamp_lock, flags);
+	if (!inf->irq_disabled)
+		disable_irq_nosync(inf->i2c->irq);
+	inf->irq_disabled = true;
+	spin_unlock_irqrestore(&inf->time_stamp_lock, flags);
+	synchronize_irq(inf->i2c->irq);
+
+	mutex_lock(&inf->mutex);
 	inf->suspend = true;
-	disable_irq(inf->i2c->irq);
 	err = nvi_pm(inf, NVI_PM_OFF);
+	mutex_unlock(&inf->mutex);
 	if (err)
 		dev_err(dev, "%s ERR\n", __func__);
 	if (inf->dbg & NVI_DBG_SPEW_MSG)
@@ -4307,10 +4395,18 @@ static int nvi_suspend(struct device *dev)
 static int nvi_resume(struct device *dev)
 {
 	struct inv_gyro_state_s *inf;
-
+	unsigned long flags;
 	inf = dev_get_drvdata(dev);
+	spin_lock_irqsave(&inf->time_stamp_lock, flags);
+	if (inf->irq_disabled)
+		enable_irq(inf->i2c->irq);
+	inf->irq_disabled = false;
+	spin_unlock_irqrestore(&inf->time_stamp_lock, flags);
+
+	mutex_lock(&inf->mutex);
+	BUG_ON(!inf->suspend);
 	inf->suspend = false;
-	enable_irq(inf->i2c->irq);
+	mutex_unlock(&inf->mutex);
 	if (inf->dbg & NVI_DBG_SPEW_MSG)
 		dev_info(dev, "%s done\n", __func__);
 	return 0;
@@ -4325,9 +4421,14 @@ static void nvi_shutdown(struct i2c_client *client)
 {
 	struct inv_gyro_state_s *inf;
 	int i;
-
-	disable_irq(client->irq);
+	unsigned long flags;
 	inf = i2c_get_clientdata(client);
+	spin_lock_irqsave(&inf->time_stamp_lock, flags);
+	if (!inf->irq_disabled)
+		disable_irq_nosync(client->irq);
+	inf->irq_disabled = true;
+	spin_unlock_irqrestore(&inf->time_stamp_lock, flags);
+	synchronize_irq(inf->i2c->irq);
 	if (inf != NULL) {
 		for (i = 0; i < AUX_PORT_SPECIAL; i++) {
 			if (inf->aux.port[i].nmp.shutdown_bypass) {
@@ -4361,6 +4462,31 @@ static int nvi_remove(struct i2c_client *client)
 	return 0;
 }
 
+static void nvi_work_func(struct work_struct *work)
+{
+	unsigned long flags;
+	int nvi_pm_current;
+	struct inv_gyro_state_s *inf =
+		container_of(work, struct inv_gyro_state_s, work_struct);
+	mutex_lock(&inf->mutex);
+	nvi_pm_current = inf->pm;
+	nvi_pm(inf, NVI_PM_OFF_FORCE);
+	if (!(inf->suspend || inf->shutdown)) {
+		nvi_pm(inf, nvi_pm_current);
+		nvi_reset(inf, true, true);
+		nvi_global_delay(inf);
+	}
+
+	spin_lock_irqsave(&inf->time_stamp_lock, flags);
+	if (inf->irq_disabled && !(inf->suspend || inf->shutdown)) {
+		enable_irq(inf->i2c->irq);
+		inf->irq_disabled = false;
+	}
+	spin_unlock_irqrestore(&inf->time_stamp_lock, flags);
+	mutex_unlock(&inf->mutex);
+	dev_err(inf->inv_dev, "Done resetting gyro\n");
+}
+
 static int nvi_probe(struct i2c_client *client,
 		     const struct i2c_device_id *id)
 {
@@ -4378,6 +4504,9 @@ static int nvi_probe(struct i2c_client *client,
 		result = -ENOMEM;
 		goto out_no_free;
 	}
+	INIT_WORK(&st->work_struct, nvi_work_func);
+	mutex_init(&st->mutex);
+	mutex_init(&st->mutex_temp);
 
 	/* Make state variables available to all _show and _store functions. */
 	i2c_set_clientdata(client, st);
@@ -4393,8 +4522,6 @@ static int nvi_probe(struct i2c_client *client,
 	if (result)
 		goto out_free;
 
-	mutex_init(&st->mutex);
-	mutex_init(&st->mutex_temp);
 	INIT_KFIFO(st->trigger.timestamps);
 	result = create_sysfs_interfaces(st);
 	if (result)
