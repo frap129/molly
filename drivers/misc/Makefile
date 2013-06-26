@@ -69,3 +69,4 @@ obj-$(CONFIG_SND_SOC_TEGRA_RT5640)	+= tfa9887.o
 obj-$(CONFIG_FAN_THERM_EST)	+= therm_fan_est.o
 obj-$(CONFIG_BLUEDROID_PM)      += bluedroid_pm.o
 obj-y				+= issp/
+obj-$(CONFIG_TEGRA_PROFILER)    += tegra-profiler/
