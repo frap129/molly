@@ -43,6 +43,9 @@ DHDCFLAGS += -DP2P_DISCOVERY_WAR
 #DHDCFLAGS += -DRSSI_OFFSET=5
 #endif
 
+## Set dhd_dpd_thread priority to MAX to avoid starvation
+DHDCFLAGS += -DCUSTOM_DPC_PRIO_SETTING=99
+
 ifeq ($(CONFIG_BCMDHD_HW_OOB),y)
 DHDCFLAGS += -DHW_OOB -DOOB_INTR_ONLY
 else
