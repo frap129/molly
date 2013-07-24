@@ -6350,7 +6350,7 @@ dhd_bus_watchdog(dhd_pub_t *dhdp)
 	else {
 		bus->idlecount++;
 
-		if (bus->idlecount >= bus->idletime) {
+		if ((bus->idletime > 0) && (bus->idlecount >= bus->idletime)) {
 			DHD_TIMER(("%s: DHD Idle state!!\n", __FUNCTION__));
 
 			if (SLPAUTO_ENAB(bus)) {
@@ -7736,3 +7736,27 @@ dhd_bus_membytes(dhd_pub_t *dhdp, bool set, uint32 address, uint8 *data, uint si
 	bus = dhdp->bus;
 	return dhdsdio_membytes(bus, set, address, data, size);
 }
+
+#ifdef SYSFS_IDLETIME
+int32 dhd_get_bus_idletime(dhd_pub_t *dhdp)
+{
+	dhd_bus_t *bus = dhdp->bus;
+
+	return bus->idletime;
+}
+
+int32 dhd_set_bus_idletime(dhd_pub_t *dhdp, int32 idletime)
+{
+	dhd_bus_t *bus = dhdp->bus;
+
+	bus->idletime = idletime;
+
+	if (dhdp->busstate != DHD_BUS_DOWN && idletime == 0) {
+		dhd_os_sdlock(dhdp);
+		BUS_WAKE(bus);
+		dhd_os_sdunlock(dhdp);
+	}
+
+	return 0;
+}
+#endif /* SYSFS_IDLETIME */

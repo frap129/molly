@@ -519,7 +519,10 @@ static void dhd_dump_htsfhisto(histo_t *his, char *s);
 int dhd_monitor_init(void *dhd_pub);
 int dhd_monitor_uninit(void);
 
-
+#ifdef SYSFS_IDLETIME
+int dhd_sysfs_init(dhd_pub_t *dhdp);
+int dhd_sysfs_deinit(void);
+#endif /* SYSFS_IDLETIME */
 
 #if defined(WL_WIRELESS_EXT)
 struct iw_statistics *dhd_get_wireless_stats(struct net_device *dev);
@@ -3143,6 +3146,10 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen, void *dev)
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && (1)
 	INIT_WORK(&dhd->work_hang, dhd_hang_process);
 #endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))  */
+
+#ifdef SYSFS_IDLETIME
+	dhd_sysfs_init(&dhd->pub);
+#endif /* SYSFS_IDLETIME */
 	/*
 	 * Save the dhd_info into the priv
 	 */
@@ -4306,6 +4313,10 @@ void dhd_detach(dhd_pub_t *dhdp)
 		wake_lock_destroy(&dhd->wl_wdwake);
 #endif /* CONFIG_HAS_WAKELOCK */
 	}
+
+#ifdef SYSFS_IDLETIME
+	dhd_sysfs_deinit();
+#endif /* SYSFS_IDLETIME */
 }
 
 
@@ -6058,3 +6069,107 @@ void htsf_update(dhd_info_t *dhd, void *data)
 }
 
 #endif /* WLMEDIA_HTSF */
+
+#ifdef SYSFS_IDLETIME
+typedef struct dhd_sysfs {
+	struct kobject *dhd_sysfs_kobj;
+	dhd_pub_t *dhdp;
+} dhd_sysfs_t;
+
+dhd_sysfs_t g_sysfs = {0,};
+
+extern int32 dhd_get_bus_idletime(dhd_pub_t *dhdp);
+extern int32 dhd_set_bus_idletime(dhd_pub_t *dhdp, int32 idletime);
+
+static ssize_t
+dhd_sysfs_idletime_store(struct kobject *kobj, struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	int32 idletime;
+
+	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
+
+	if (!g_sysfs.dhdp) {
+		DHD_ERROR(("%s: not initialized yet\n", __FUNCTION__));
+		return -EFAULT;
+	}
+	if (sscanf(buf, "%d", &idletime) < 1) {
+		DHD_ERROR(("%s: failed to parse write value\n", __FUNCTION__));
+		return -EFAULT;
+	}
+
+	DHD_INFO(("%s: idletime:%d\n", __FUNCTION__, idletime));
+
+	dhd_set_bus_idletime(g_sysfs.dhdp, idletime);
+
+	return count;
+}
+
+static ssize_t
+dhd_sysfs_idletime_show(struct kobject *kobj, struct kobj_attribute *attr,
+		char *buf)
+{
+	int32 idletime;
+
+	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
+
+	if (!g_sysfs.dhdp) {
+		DHD_ERROR(("%s: not initialized yet\n", __FUNCTION__));
+		return -EFAULT;
+	}
+
+	idletime = dhd_get_bus_idletime(g_sysfs.dhdp);
+	DHD_INFO(("%s: idletime:%d\n", __FUNCTION__, idletime));
+
+	return sprintf(buf, "%d\n", idletime);
+}
+
+static struct kobj_attribute dhd_sysfs_idletime_attribute =
+	__ATTR(idletime, 0644, dhd_sysfs_idletime_show, dhd_sysfs_idletime_store);
+
+static struct attribute *dhd_sysfs_attrs[] = {
+	&dhd_sysfs_idletime_attribute.attr,
+	NULL,
+};
+
+static struct attribute_group dhd_sysfs_attr_group = {
+	.attrs = dhd_sysfs_attrs,
+};
+
+int dhd_sysfs_deinit(void)
+{
+	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
+
+	if (g_sysfs.dhd_sysfs_kobj) {
+		kobject_put(g_sysfs.dhd_sysfs_kobj);
+		g_sysfs.dhd_sysfs_kobj = NULL;
+	}
+
+	g_sysfs.dhdp = NULL;
+
+	return 0;
+}
+
+int dhd_sysfs_init(dhd_pub_t *dhdp)
+{
+	int ret;
+	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
+
+	g_sysfs.dhd_sysfs_kobj = kobject_create_and_add(KBUILD_MODNAME, kernel_kobj);
+	if (!g_sysfs.dhd_sysfs_kobj) {
+		DHD_ERROR(("%s: kobject_create_and_add() failed\n", __FUNCTION__));
+		return -ENOMEM;
+	}
+
+	ret = sysfs_create_group(g_sysfs.dhd_sysfs_kobj, &dhd_sysfs_attr_group);
+	if (ret) {
+		DHD_ERROR(("%s: sysfs_create_group() failed\n", __FUNCTION__));
+		dhd_sysfs_deinit();
+		return ret;
+	}
+
+	g_sysfs.dhdp = dhdp;
+
+	return 0;
+}
+#endif /* SYSFS_IDLETIME */
