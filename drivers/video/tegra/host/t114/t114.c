@@ -177,7 +177,6 @@ static struct nvhost_device_data tegra_isp01_info = {
 	.index		= 3,
 	.syncpts	= BIT(NVSYNCPT_VI_ISP_2) | BIT(NVSYNCPT_VI_ISP_3) |
 			  BIT(NVSYNCPT_VI_ISP_4),
-	.clocks		= { {"epp", 0} },
 	.keepalive	= true,
 	NVHOST_MODULE_NO_POWERGATE_IDS,
 	NVHOST_DEFAULT_CLOCKGATE_DELAY,
