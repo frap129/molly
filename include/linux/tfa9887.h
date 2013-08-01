@@ -1,3 +1,18 @@
+/*
+ * include/linux/tfa9887.h
+ *
+ * Copyright (c) 2013, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ */
 
 #ifndef __LINUX_TFA9887_H
 #define __LINUX_TFA9887_H
@@ -72,6 +87,11 @@ void resetMtpEx(struct tfa9887_priv *tfa9887);
 int checkMTPEX(struct tfa9887_priv *tfa9887);
 
 void setOtc(struct tfa9887_priv *tfa9887, unsigned short otcOn);
+
+int Tfa9887_setSampleRate(int sRate);
+
+int setSampleRate(struct tfa9887_priv *tfa9887, int sRate);
+
 
 typedef enum Tfa9887_AmpInputSel {
 	Tfa9887_AmpInputSel_I2SLeft,

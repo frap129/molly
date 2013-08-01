@@ -2,7 +2,7 @@
  * tegra_rt5640.c - Tegra machine ASoC driver for boards using ALC5640 codec.
  *
  * Author: Johnny Qiu <joqiu@nvidia.com>
- * Copyright (C) 2011-2012, NVIDIA, Inc.
+ * Copyright (C) 2011-2013, NVIDIA, Inc.
  *
  * Based on code copyright/by:
  *
@@ -10,7 +10,7 @@
  * Author: Graeme Gregory
  *         graeme.gregory@wolfsonmicro.com or linux@wolfsonmicro.com
  *
- * Copyright (c) 2012, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2012-2013, NVIDIA CORPORATION. All rights reserved.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * version 2 as published by the Free Software Foundation.
@@ -100,7 +100,8 @@ static int tegra_rt5640_hw_params(struct snd_pcm_substream *substream,
 	struct tegra30_i2s *i2s = snd_soc_dai_get_drvdata(cpu_dai);
 	int srate, mclk, i2s_daifmt;
 	int err, rate;
-	static unsigned initTfa = 0;
+	static unsigned int initTfa;
+	static int tfasrate;
 
 	srate = params_rate(params);
 	mclk = 256 * srate;
@@ -167,7 +168,13 @@ static int tegra_rt5640_hw_params(struct snd_pcm_substream *substream,
 			tegra_asoc_enable_clocks();
 			pr_info("INIT TFA\n");
 			Tfa9887_Init(srate);
+			tfasrate = srate;
 			tegra_asoc_disable_clocks();
+		} else if (initTfa > 1) {
+			if (srate != tfasrate) {
+				Tfa9887_setSampleRate(srate);
+				tfasrate = srate;
+			}
 		}
 		initTfa++;
 	}
