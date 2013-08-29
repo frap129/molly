@@ -16,7 +16,6 @@
  * GNU General Public License for more details.
  *
  */
-
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/err.h>
@@ -821,7 +820,7 @@ void tegra_dc_hdmi_detect_config(struct tegra_dc *dc,
 	hdmi->hpd_switch.state = 0;
 	switch_set_state(&hdmi->hpd_switch, 1);
 #endif
-	dev_info(&dc->ndev->dev, "display detected\n");
+	dev_info(&dc->ndev->dev, "display detected in config, hpd_switch 1\n");
 
 	dc->connected = true;
 	tegra_dc_ext_process_hotplug(dc->ndev->id);
@@ -852,7 +851,7 @@ bool tegra_dc_hdmi_detect_test(struct tegra_dc *dc, unsigned char *edid_ptr)
 		hdmi->hpd_switch.state = 0;
 		switch_set_state(&hdmi->hpd_switch, 1);
 #endif
-		dev_info(&dc->ndev->dev, "display detected\n");
+		dev_info(&dc->ndev->dev, "display detected, hpd_switch 1\n");
 
 		dc->connected = true;
 		tegra_dc_ext_process_hotplug(dc->ndev->id);
@@ -873,6 +872,7 @@ fail:
 	hdmi->eld_retrieved = false;
 #ifdef CONFIG_SWITCH
 	switch_set_state(&hdmi->hpd_switch, 0);
+	dev_info(&dc->ndev->dev, "no display, hpd_switch 0\n");
 #endif
 	tegra_nvhdcp_set_plug(hdmi->nvhdcp, 0);
 	return false;
@@ -905,7 +905,7 @@ static bool tegra_dc_hdmi_detect(struct tegra_dc *dc)
 		hdmi->hpd_switch.state = 0;
 		switch_set_state(&hdmi->hpd_switch, 1);
 #endif
-		dev_info(&dc->ndev->dev, "display detected\n");
+		dev_info(&dc->ndev->dev, "display detected, hpd_switch 1\n");
 
 		dc->connected = true;
 		tegra_dc_ext_process_hotplug(dc->ndev->id);
@@ -933,6 +933,7 @@ fail:
 	hdmi->eld_retrieved = false;
 #ifdef CONFIG_SWITCH
 	switch_set_state(&hdmi->hpd_switch, 0);
+	dev_info(&dc->ndev->dev, "no display, hpd_switch 0\n");
 #endif
 	tegra_nvhdcp_set_plug(hdmi->nvhdcp, 0);
 	return false;
