@@ -1803,7 +1803,8 @@ static void tegra_dc_hdmi_setup_tdms(struct tegra_dc_hdmi_data *hdmi,
 	tegra_hdmi_writel(hdmi, tc->drive_current,
 		HDMI_NV_PDISP_SOR_LANE_DRIVE_CURRENT);
 	val = tegra_hdmi_readl(hdmi, HDMI_NV_PDISP_SOR_PAD_CTLS0);
-	val |= DRIVE_CURRENT_FUSE_OVERRIDE_T11x;
+	val &= ~BG_VREF_LEVEL(0xF);
+	val |= DRIVE_CURRENT_FUSE_OVERRIDE_T11x | BG_VREF_LEVEL(6);
 	tegra_hdmi_writel(hdmi, val, HDMI_NV_PDISP_SOR_PAD_CTLS0);
 
 	tegra_hdmi_writel(hdmi, tc->peak_current,
