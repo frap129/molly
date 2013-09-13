@@ -911,11 +911,9 @@ static int hdmi_pcm_open(struct hda_pcm_stream *hinfo,
 		(codec->preset->id == 0x10de0022))) &&
 		(!eld->monitor_present || !eld->lpcm_sad_ready)) {
 		if (!eld->monitor_present) {
-			if (tegra_hdmi_setup_hda_presence() < 0) {
-				snd_printk(KERN_WARNING
-					   "HDMI: No HDMI device connected\n");
-				return -ENODEV;
-			}
+			snd_printk(KERN_WARNING
+				   "HDMI: No HDMI device connected\n");
+			return -ENODEV;
 		}
 		if (!eld->lpcm_sad_ready)
 			return -ENODEV;
