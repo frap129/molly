@@ -353,7 +353,7 @@ static int bq2419x_set_charging_current(struct regulator_dev *rdev,
 		if (bq_charger->update_status)
 			bq_charger->update_status
 				(bq_charger->status, 2);
-	} else {
+	} else if (bq_charger->in_current_limit > 500) {
 		bq_charger->status = 1;
 		bq_charger->ac_online = 1;
 		ret = bq2419x_init(bq_charger);
