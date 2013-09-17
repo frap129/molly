@@ -396,8 +396,6 @@ static int bq2419x_reset_wdt(struct bq2419x_chip *bq2419x, const char *from)
 	if (bq2419x->suspended)
 		goto scrub;
 
-	dev_info(bq2419x->dev, "%s() from %s()\n", __func__, from);
-
 	/* Clear EN_HIZ */
 	ret = regmap_update_bits(bq2419x->regmap,
 			BQ2419X_INPUT_SRC_REG, BQ2419X_EN_HIZ, 0);
