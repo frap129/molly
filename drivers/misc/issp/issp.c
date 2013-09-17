@@ -148,14 +148,16 @@ static void issp_recovery_work_func(struct work_struct *work)
 	extern void roth_usb_unload(void);
 	extern void roth_usb_reload(void);
 
-	pr_info("%s\n", __func__);
+	dev_info(&g_issp_host->pdev->dev, "%s\n", __func__);
 	if (!g_issp_wake_lock) {
-		pr_err("%s: wake_lock null!!\n", __func__);
+		dev_err(&g_issp_host->pdev->dev,
+				"%s: wake_lock null!!\n", __func__);
 		return;
 	}
 
 	for (i = 0; i < 1; i++) {
-		pr_info("%s: recovery attempt #%d\n", __func__, i);
+		dev_info(&g_issp_host->pdev->dev,
+				"%s: recovery attempt #%d\n", __func__, i);
 		roth_usb_unload();
 		issp_uc_reset();
 		roth_usb_reload();
@@ -168,9 +170,10 @@ static void issp_recovery_work_func(struct work_struct *work)
 
 void issp_start_recovery_work(void)
 {
-	pr_info("%s\n", __func__);
+	dev_info(&g_issp_host->pdev->dev, "%s\n", __func__);
 	if (!issp_workqueue) {
-		pr_err("%s: no workqueue!\n", __func__);
+		dev_err(&g_issp_host->pdev->dev,
+				"%s: no workqueue!\n", __func__);
 		return;
 	}
 
@@ -183,18 +186,22 @@ void issp_start_recovery_work(void)
 
 static ssize_t issp_reset_set(struct device *dev, struct device_attribute *attr,
 		const char *buf, size_t count) {
+	dev_info(dev, "resetting uC\n");
+	wake_lock(g_issp_wake_lock);
 	issp_uc_reset();
-	pr_err("issp: toggling reset pin on uC!");
+	wake_unlock(g_issp_wake_lock);
 	return count;
 }
 
 static ssize_t issp_usbreset_set(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t count) {
+	dev_info(dev, "resetting USB and uC\n");
+	wake_lock(g_issp_wake_lock);
 	roth_usb_unload();
 	issp_uc_reset();
 	roth_usb_reload();
-	pr_err("issp: reset both usb and uC!");
+	wake_unlock(g_issp_wake_lock);
 	return count;
 }
 
@@ -206,7 +213,7 @@ static ssize_t issp_data_set(struct device *dev, struct device_attribute *attr,
 	if (!kstrtoul(buf, 10, &val)) {
 		if (val == 1 || val == 0) {
 			gpio_set_value(pdata->data_gpio, val);
-			pr_err("issp: set data gpio to %d", val);
+			dev_err(dev, "issp: set data gpio to %d", val);
 		}
 	}
 	return count;
@@ -230,7 +237,7 @@ static ssize_t issp_clk_set(struct device *dev, struct device_attribute *attr,
 	if (!kstrtoul(buf, 10, &val)) {
 		if (val == 1 || val == 0) {
 			gpio_set_value(pdata->clk_gpio, val);
-			pr_err("issp: set clk gpio to %d", val);
+			dev_err("issp: set clk gpio to %d", val);
 		}
 	}
 	return count;
