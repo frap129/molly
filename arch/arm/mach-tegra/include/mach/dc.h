@@ -482,6 +482,7 @@ struct tegra_dc_out {
 
 	struct tegra_dc_mode		*modes;
 	int				n_modes;
+	unsigned			v_refresh_tolerance;
 
 	struct tegra_dsi_out		*dsi;
 	struct tegra_hdmi_out		*hdmi_out;
@@ -523,6 +524,10 @@ struct tegra_dc_out {
 #define TEGRA_DC_OUT_INITIALIZED_MODE		(1 << 6)
 /* Makes hotplug GPIO a LP0 wakeup source */
 #define TEGRA_DC_OUT_HOTPLUG_WAKE_LP0		(1 << 7)
+/* Filter HDMI modes to only allow ones in
+ * the modes arg in tegra_dc_out
+ */
+#define TEGRA_DC_OUT_FILTER_ALLOWED_MODES	(1 << 8)
 
 #define TEGRA_DC_ALIGN_MSB		0
 #define TEGRA_DC_ALIGN_LSB		1
