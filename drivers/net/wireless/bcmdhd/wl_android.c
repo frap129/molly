@@ -93,6 +93,8 @@
 #define CMD_TEST_FORCE_HANG		"TEST_FORCE_HANG"
 #endif
 #define CMD_SETMIRACAST 	"SETMIRACAST"
+#define CMD_ASSOCRESPIE		"ASSOCRESPIE"
+#define CMD_MAXLINKSPEED	"MAXLINKSPEED"
 
 /* CCX Private Commands */
 
@@ -874,7 +876,14 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 #endif /* SUPPORT_TRIGGER_HANG_EVENT */
 	else if (strnicmp(command, CMD_SETMIRACAST, strlen(CMD_SETMIRACAST)) == 0) {
 		bytes_written = wldev_miracast_tuning(net, command, priv_cmd.total_len);
-	}
+	} else if (strnicmp(command, CMD_ASSOCRESPIE, strlen(CMD_ASSOCRESPIE))
+== 0)
+		bytes_written = wldev_get_assoc_resp_ie(net, command,
+priv_cmd.total_len);
+	else if (strnicmp(command, CMD_MAXLINKSPEED, strlen(CMD_MAXLINKSPEED))
+== 0)
+		bytes_written = wldev_get_max_linkspeed(net, command,
+priv_cmd.total_len);
 	else if (strnicmp(command, CMD_OKC_SET_PMK, strlen(CMD_OKC_SET_PMK)) == 0)
 		bytes_written = wl_android_set_pmk(net, command, priv_cmd.total_len);
 	else if (strnicmp(command, CMD_OKC_ENABLE, strlen(CMD_OKC_ENABLE)) == 0)
