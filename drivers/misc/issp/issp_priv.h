@@ -22,6 +22,7 @@
 
 #include <linux/kernel.h>
 #include <linux/issp.h>
+#include <linux/mutex.h>
 
 struct issp_host {
 	struct platform_device *pdev;
@@ -35,6 +36,7 @@ struct issp_host {
 	/* context to get fw data */
 	const struct ihex_binrec *cur_rec;
 	int cur_idx;
+	struct mutex issp_lock;
 };
 
 #define ISSP_FW_SECURITY_ADDR	0x00100000
