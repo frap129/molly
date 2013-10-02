@@ -773,6 +773,7 @@ static int nvi_vreg_dis_all(struct inv_gyro_state_s *inf)
 
 	for (i = ARRAY_SIZE(nvi_vregs); i > 0; i--)
 		err |= nvi_vreg_dis(inf, (i - 1));
+	inf->shutdown = true;
 	return err;
 }
 
@@ -802,6 +803,7 @@ static int nvi_vreg_en_all(struct inv_gyro_state_s *inf)
 
 	for (i = 0; i < ARRAY_SIZE(nvi_vregs); i++)
 		err |= nvi_vreg_en(inf, i);
+	inf->shutdown = false;
 	return err;
 }
 
