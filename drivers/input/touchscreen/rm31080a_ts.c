@@ -949,12 +949,14 @@ static int rm_tch_ts_send_signal(int pid, int iInfo)
 	t = find_task_by_vpid(pid);
 	rcu_read_unlock();
 	if (t == NULL) {
+		mutex_unlock(&lock);
 		dev_err(&g_spi->dev, "%s: no such pid\n", __func__);
 		return FAIL;
 	} else
 		ret = send_sig_info(RM_TS_SIGNAL, &info, t);	/*send the signal*/
 
 	if (ret < 0) {
+		mutex_unlock(&lock);
 		dev_err(&g_spi->dev, "%s: send sig failed err:%d \n", __func__, ret);
 		return FAIL;
 	}
