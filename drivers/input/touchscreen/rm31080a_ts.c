@@ -211,6 +211,8 @@ unsigned char g_stRmWatchdogCmd[KRL_SIZE_RM_WATCHDOG];
 unsigned char g_stRmTestModeCmd[KRL_SIZE_RM_TESTMODE];
 unsigned char g_stRmSlowScanCmd[KRL_SIZE_RM_SLOWSCAN];
 
+static int g_service_busy_report_count;
+
 /*=============================================================================
 	FUNCTION DECLARATION
 =============================================================================*/
@@ -1056,10 +1058,16 @@ static void *rm_tch_enqueue_start(void)
 	if (!g_stQ.pQueue)	/*error handling for no memory*/
 		return NULL;
 
-	if (!rm_tch_queue_is_full())
+	if (!rm_tch_queue_is_full()) {
+		g_service_busy_report_count = 100;
 		return &g_stQ.pQueue[g_stQ.u16Rear];
+	}
 
-	rm_printk("rm31080:touch service is busy,try again.\n");
+	if (g_service_busy_report_count < 0) {
+		g_service_busy_report_count = 100;
+		rm_printk("rm31080:touch service is busy,try again.\n");
+	} else
+		g_service_busy_report_count--;
 	return NULL;
 }
 
