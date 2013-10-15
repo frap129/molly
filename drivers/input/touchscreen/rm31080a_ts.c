@@ -798,9 +798,13 @@ static int rm_tch_cmd_process(u8 selCase, u8 *pCmdTbl, struct rm_tch_ts *ts)
 				/*rm_printk("KRL_CMD_FLUSH_QU : %d\n",pCmdTbl[_SUB_CMD]);*/
 				ret = OK;
 				if (pCmdTbl[_SUB_CMD] == KRL_SUB_CMD_SENSOR_QU) {
+					mutex_unlock(&lock);
 					flush_workqueue(g_stTs.rm_workqueue);
+					mutex_lock(&lock);
 				} else if (pCmdTbl[_SUB_CMD] == KRL_SUB_CMD_TIMER_QU) {
+					mutex_unlock(&lock);
 					flush_workqueue(g_stTs.rm_timer_workqueue);
+					mutex_lock(&lock);
 				} else
 					ret = FAIL;
 				break;
