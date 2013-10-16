@@ -87,6 +87,7 @@ struct nct1008_data {
 	struct i2c_client *client;
 	struct nct1008_platform_data plat_data;
 	struct mutex mutex;
+	struct mutex suspend_mutex;
 	struct dentry *dent;
 	u8 config;
 	enum nct1008_chip chip;
@@ -530,15 +531,16 @@ static int nct1008_ext_get_temp(struct thermal_zone_device *thz,
 	long temp_ext_milli;
 	u8 value;
 
+	mutex_lock(&data->suspend_mutex);
 	/* Read External Temp */
 	value = nct1008_read_reg(client, EXT_TEMP_RD_LO);
 	if (value < 0)
-		return -1;
+		goto read_error;
 	temp_ext_lo = (value >> 6);
 
 	value = nct1008_read_reg(client, EXT_TEMP_RD_HI);
 	if (value < 0)
-		return -1;
+		goto read_error;
 	temp_ext_hi = value_to_temperature(pdata->ext_range, value);
 
 	temp_ext_milli = CELSIUS_TO_MILLICELSIUS(temp_ext_hi) +
@@ -546,7 +548,13 @@ static int nct1008_ext_get_temp(struct thermal_zone_device *thz,
 	*temp = temp_ext_milli;
 	data->etemp = temp_ext_milli;
 
+	mutex_unlock(&data->suspend_mutex);
 	return 0;
+
+read_error:
+	mutex_unlock(&data->suspend_mutex);
+	*temp = 0;
+	return -1;
 }
 
 static int nct1008_ext_bind(struct thermal_zone_device *thz,
@@ -665,16 +673,23 @@ static int nct1008_int_get_temp(struct thermal_zone_device *thz,
 	long temp_local_milli;
 	u8 value;
 
+	mutex_lock(&data->suspend_mutex);
 	/* Read Local Temp */
 	value = nct1008_read_reg(client, LOCAL_TEMP_RD);
 	if (value < 0)
-		return -1;
+		goto read_error;
+
 	temp_local = value_to_temperature(pdata->ext_range, value);
 
 	temp_local_milli = CELSIUS_TO_MILLICELSIUS(temp_local);
 	*temp = temp_local_milli;
 
+	mutex_unlock(&data->suspend_mutex);
 	return 0;
+read_error:
+	*temp = 0;
+	mutex_unlock(&data->suspend_mutex);
+	return -1;
 }
 
 static int nct1008_int_bind(struct thermal_zone_device *thz,
@@ -1109,6 +1124,7 @@ static int __devinit nct1008_probe(struct i2c_client *client,
 		sizeof(struct nct1008_platform_data));
 	i2c_set_clientdata(client, data);
 	mutex_init(&data->mutex);
+	mutex_init(&data->suspend_mutex);
 
 	nct1008_power_control(data, true);
 	/* extended range recommended steps 1 through 4 taken care
@@ -1250,11 +1266,17 @@ static int nct1008_suspend(struct device *dev)
 	mutex_lock(&data->mutex);
 	data->stop_workqueue = 1;
 	mutex_unlock(&data->mutex);
-	cancel_work_sync(&data->work);
-	disable_irq(client->irq);
 
+	cancel_work_sync(&data->work);
+
+	/* Unlikely race: Interrupt could revive the
+	 * work that could start
+	 */
+	mutex_lock(&data->suspend_mutex);
+	disable_irq(client->irq);
 	err = nct1008_disable(client);
 	nct1008_power_control(data, false);
+	mutex_unlock(&data->suspend_mutex);
 	return err;
 }
 
@@ -1264,20 +1286,22 @@ static int nct1008_resume(struct device *dev)
 	int err;
 	struct nct1008_data *data = i2c_get_clientdata(client);
 
+	mutex_lock(&data->suspend_mutex);
 	nct1008_power_control(data, true);
 	nct1008_configure_sensor(data);
 	err = nct1008_enable(client);
 	if (err < 0) {
+		mutex_unlock(&data->suspend_mutex);
 		dev_err(&client->dev, "Error: %s, error=%d\n",
 			__func__, err);
 		return err;
 	}
+	mutex_unlock(&data->suspend_mutex);
 	nct1008_update(data);
 	mutex_lock(&data->mutex);
 	data->stop_workqueue = 0;
 	mutex_unlock(&data->mutex);
 	enable_irq(client->irq);
-
 	return 0;
 }
 
