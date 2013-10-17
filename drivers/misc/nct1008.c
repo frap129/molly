@@ -81,6 +81,9 @@
 
 #define POWER_ON_DELAY 20 /*ms*/
 
+#define NCT1008_TJ_MAX 150000 /*mC*/
+#define NCT1008_TJ_MIN -55000 /*mC*/
+
 struct nct1008_data {
 	struct workqueue_struct *workqueue;
 	struct work_struct work;
@@ -532,28 +535,37 @@ static int nct1008_ext_get_temp(struct thermal_zone_device *thz,
 	u8 value;
 
 	mutex_lock(&data->suspend_mutex);
+
 	/* Read External Temp */
 	value = nct1008_read_reg(client, EXT_TEMP_RD_LO);
 	if (value < 0)
 		goto read_error;
-	temp_ext_lo = (value >> 6);
 
+	temp_ext_lo = (value >> 6);
 	value = nct1008_read_reg(client, EXT_TEMP_RD_HI);
+
 	if (value < 0)
 		goto read_error;
-	temp_ext_hi = value_to_temperature(pdata->ext_range, value);
 
+	temp_ext_hi = value_to_temperature(pdata->ext_range, value);
 	temp_ext_milli = CELSIUS_TO_MILLICELSIUS(temp_ext_hi) +
-			 temp_ext_lo * 250;
+				temp_ext_lo * 250;
+
 	*temp = temp_ext_milli;
-	data->etemp = temp_ext_milli;
+
+	if (temp_ext_milli > NCT1008_TJ_MAX ||
+		temp_ext_milli < NCT1008_TJ_MIN) {
+		dev_err(&data->client->dev,
+			"wrong temp read: %ld", temp_ext_milli);
+		goto read_error;
+	} else
+		data->etemp = temp_ext_milli;
 
 	mutex_unlock(&data->suspend_mutex);
 	return 0;
 
 read_error:
 	mutex_unlock(&data->suspend_mutex);
-	*temp = 0;
 	return -1;
 }
 
