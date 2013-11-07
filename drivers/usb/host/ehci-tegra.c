@@ -651,6 +651,7 @@ static int tegra_ehci_remove(struct platform_device *pdev)
 	usb_phy_shutdown(get_usb_phy(tegra->phy));
 	iounmap(hcd->regs);
 	usb_put_hcd(hcd);
+	mutex_destroy(&tegra->sync_lock);
 
 	return 0;
 }
