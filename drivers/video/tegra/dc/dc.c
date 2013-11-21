@@ -2168,6 +2168,9 @@ static bool _tegra_dc_enable(struct tegra_dc *dc)
 	if (dc->enabled)
 		return true;
 
+	if (dc->out->type == TEGRA_DC_OUT_HDMI && !tegra_dc_hpd(dc))
+		return false;
+
 	if (!_tegra_dc_controller_enable(dc))
 		return false;
 
