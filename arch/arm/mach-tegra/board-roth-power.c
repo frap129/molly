@@ -100,10 +100,12 @@ static struct i2c_board_info __initdata tps51632_boardinfo[] = {
 /* BQ2419X VBUS regulator */
 static struct regulator_consumer_supply bq2419x_vbus_supply[] = {
 	REGULATOR_SUPPLY("usb_vbus", "tegra-ehci.0"),
+	REGULATOR_SUPPLY("usb_vbus", "tegra-otg"),
 };
 
 static struct regulator_consumer_supply bq2419x_batt_supply[] = {
 	REGULATOR_SUPPLY("usb_bat_chg", "tegra-udc.0"),
+	REGULATOR_SUPPLY("usb_bat_chg", "tegra-otg"),
 };
 
 static struct bq2419x_vbus_platform_data bq2419x_vbus_pdata = {

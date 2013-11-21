@@ -2,7 +2,7 @@
  * arch/arm/mach-tegra/usb_phy.c
  *
  * Copyright (C) 2010 Google, Inc.
- * Copyright (c) 2010-2012, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2010-2013, NVIDIA CORPORATION.  All rights reserved.
  *
  * Author:
  *	Erik Gilling <konkers@google.com>
@@ -100,6 +100,10 @@ struct tegra_usb_phy *get_tegra_phy(struct usb_phy *x)
 
 static void usb_host_vbus_enable(struct tegra_usb_phy *phy, bool enable)
 {
+	/* OTG driver will take care for OTG port */
+	if (phy->pdata->port_otg)
+		return;
+
 	if (phy->vbus_reg) {
 		if (enable)
 			regulator_enable(phy->vbus_reg);
