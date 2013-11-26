@@ -116,11 +116,14 @@ bool is_tegra_debug_uartport_hs(void);
 int get_tegra_uart_debug_port_id(void);
 int arb_lost_recovery(int scl_gpio, int sda_gpio);
 
+#define USE_DEFAULT_START_ADDR 0x0
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
-void __init tegra_ram_console_debug_reserve(unsigned long ram_console_size);
+void __init tegra_ram_console_debug_reserve(phys_addr_t ram_console_start,
+					    unsigned long ram_console_size);
 void __init tegra_ram_console_debug_init(void);
 #else
-static inline void __init tegra_ram_console_debug_reserve(unsigned long ram_console_size)
+static inline void __init tegra_ram_console_debug_reserve(
+	phys_addr_t ram_console_start, unsigned long ram_console_size)
 {}
 static inline void __init tegra_ram_console_debug_init(void)
 {}
