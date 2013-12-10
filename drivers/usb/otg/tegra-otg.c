@@ -3,7 +3,7 @@
  *
  * OTG transceiver driver for Tegra UTMI phy
  *
- * Copyright (C) 2010-2012 NVIDIA CORPORATION. All rights reserved.
+ * Copyright (C) 2010-2013 NVIDIA CORPORATION. All rights reserved.
  * Copyright (C) 2010 Google, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
@@ -32,6 +32,7 @@
 #include <linux/err.h>
 #include <linux/export.h>
 #include <linux/pm_runtime.h>
+#include <linux/regulator/consumer.h>
 
 #define USB_PHY_WAKEUP		0x408
 #define  USB_ID_INT_EN		(1 << 0)
@@ -51,6 +52,8 @@
 #define DBG(stuff...)	do {} while (0)
 #endif
 
+#define YCABLE_CHARGING_CURRENT_UA 500000u
+
 struct tegra_otg_data {
 	struct platform_device *pdev;
 	struct tegra_usb_otg_data *pdata;
@@ -62,7 +65,12 @@ struct tegra_otg_data {
 	struct clk *clk;
 	int irq;
 	struct work_struct work;
+	struct regulator *vbus_reg;
+	struct regulator *vbus_bat_reg;
 	unsigned int intr_reg_data;
+	bool support_y_cable;
+	bool y_cable_conn;
+	bool turn_off_vbus_on_lp0;
 	bool clk_enabled;
 	bool interrupt_mode;
 	bool builtin_host;
@@ -190,6 +198,74 @@ static void tegra_otg_notify_event(struct tegra_otg_data *tegra, int event)
 	atomic_notifier_call_chain(&tegra->phy.notifier, event, tegra->phy.otg->gadget);
 }
 
+static void tegra_otg_set_current(struct regulator *vbus_bat_reg, int max_uA)
+{
+	if (vbus_bat_reg == NULL)
+		return ;
+
+	regulator_set_current_limit(vbus_bat_reg, 0, max_uA);
+}
+
+static void tegra_otg_vbus_enable(struct regulator *vbus_reg, int on)
+{
+	static int vbus_enable = 1;
+
+	if (vbus_reg == NULL)
+		return ;
+	DBG("%s(%d) vbus_enable = %d on = %d\n", __func__, __LINE__,
+				vbus_enable, on);
+
+	if (on && vbus_enable) {
+		regulator_enable(vbus_reg);
+		vbus_enable = 0;
+	} else if (!on && !vbus_enable) {
+		regulator_disable(vbus_reg);
+		vbus_enable = 1;
+	}
+}
+
+static int tegra_otg_start_host(struct tegra_otg_data *tegra, int on)
+{
+	if (on) {
+		if (tegra->support_y_cable &&
+				(tegra->int_status & USB_VBUS_STATUS)) {
+			DBG("%s(%d) set current %dmA\n", __func__, __LINE__,
+					YCABLE_CHARGING_CURRENT_UA/1000);
+			tegra_otg_set_current(tegra->vbus_bat_reg,
+					YCABLE_CHARGING_CURRENT_UA);
+			tegra->y_cable_conn = true;
+		} else {
+			tegra_otg_vbus_enable(tegra->vbus_reg, 1);
+		}
+		tegra_start_host(tegra);
+		tegra_otg_notify_event(tegra, USB_EVENT_ID);
+	} else {
+		tegra_stop_host(tegra);
+		tegra_otg_notify_event(tegra, USB_EVENT_NONE);
+		tegra_otg_vbus_enable(tegra->vbus_reg, 0);
+		if (tegra->support_y_cable && tegra->y_cable_conn) {
+			tegra_otg_set_current(tegra->vbus_bat_reg, 0);
+			tegra->y_cable_conn = false;
+		}
+	}
+	return 0;
+}
+
+static int tegra_otg_start_gadget(struct tegra_otg_data *tegra, int on)
+{
+	struct usb_otg *otg = tegra->phy.otg;
+
+	if (on) {
+		usb_gadget_vbus_connect(otg->gadget);
+		tegra_otg_notify_event(tegra, USB_EVENT_VBUS);
+	} else {
+		usb_gadget_vbus_disconnect(otg->gadget);
+		tegra_otg_notify_event(tegra, USB_EVENT_NONE);
+	}
+
+	return 0;
+}
+
 static void tegra_change_otg_state(struct tegra_otg_data *tegra,
 				enum usb_otg_state to)
 {
@@ -209,20 +285,23 @@ static void tegra_change_otg_state(struct tegra_otg_data *tegra,
 		pr_info("otg state changed: %s --> %s\n", tegra_state_name(from), tegra_state_name(to));
 
 		if (from == OTG_STATE_A_SUSPEND) {
-			if (to == OTG_STATE_B_PERIPHERAL && otg->gadget) {
-				usb_gadget_vbus_connect(otg->gadget);
-				tegra_otg_notify_event(tegra, USB_EVENT_VBUS);
-			}
-			else if (to == OTG_STATE_A_HOST) {
-				tegra_start_host(tegra);
-				tegra_otg_notify_event(tegra, USB_EVENT_ID);
-			}
+			if (to == OTG_STATE_B_PERIPHERAL && otg->gadget)
+				tegra_otg_start_gadget(tegra, 1);
+			else if (to == OTG_STATE_A_HOST)
+				tegra_otg_start_host(tegra, 1);
 		} else if (from == OTG_STATE_A_HOST && to == OTG_STATE_A_SUSPEND) {
-			tegra_stop_host(tegra);
-			tegra_otg_notify_event(tegra, USB_EVENT_NONE);
+			tegra_otg_start_host(tegra, 0);
 		} else if (from == OTG_STATE_B_PERIPHERAL && otg->gadget && to == OTG_STATE_A_SUSPEND) {
-			usb_gadget_vbus_disconnect(otg->gadget);
-			tegra_otg_notify_event(tegra, USB_EVENT_NONE);
+			tegra_otg_start_gadget(tegra, 0);
+		}
+	}
+
+	if (tegra->support_y_cable && tegra->y_cable_conn &&
+			from == to && from == OTG_STATE_A_HOST) {
+		if (!(tegra->int_status & USB_VBUS_STATUS)) {
+			DBG("%s(%d) Charger disconnect\n", __func__, __LINE__);
+			tegra_otg_set_current(tegra->vbus_bat_reg, 0);
+			tegra_otg_vbus_enable(tegra->vbus_reg, 1);
 		}
 	}
 }
@@ -421,6 +500,9 @@ static int tegra_otg_probe(struct platform_device *pdev)
 	tegra_clone = tegra;
 	tegra->interrupt_mode = true;
 	tegra->suspended = false;
+	tegra->turn_off_vbus_on_lp0 = true;
+	tegra->support_y_cable = true;
+	tegra->y_cable_conn = false;
 
 	tegra->clk = clk_get(&pdev->dev, NULL);
 	if (IS_ERR(tegra->clk)) {
@@ -465,6 +547,22 @@ static int tegra_otg_probe(struct platform_device *pdev)
 		err = 0;
 	}
 
+	tegra->vbus_reg = regulator_get(&pdev->dev, "usb_vbus");
+	if (IS_ERR_OR_NULL(tegra->vbus_reg)) {
+		pr_err("failed to get regulator usb_vbus: %ld\n",
+				PTR_ERR(tegra->vbus_reg));
+		tegra->vbus_reg = NULL;
+	}
+
+	if (tegra->support_y_cable) {
+		tegra->vbus_bat_reg = regulator_get(&pdev->dev, "usb_bat_chg");
+		if (IS_ERR_OR_NULL(tegra->vbus_bat_reg)) {
+			pr_err("failed to get regulator usb_bat_chg: %ld\n",
+					PTR_ERR(tegra->vbus_bat_reg));
+			tegra->vbus_bat_reg = NULL;
+		}
+	}
+
 	INIT_WORK(&tegra->work, irq_work);
 
 	tegra->phy.dev = &pdev->dev;
@@ -502,12 +600,23 @@ err_irq:
 err_io:
 	clk_put(tegra->clk);
 err_clk:
+	if (tegra->vbus_reg)
+		regulator_put(tegra->vbus_reg);
+	if (tegra->support_y_cable && tegra->vbus_bat_reg)
+		regulator_put(tegra->vbus_bat_reg);
+
 	return err;
 }
 
 static int __exit tegra_otg_remove(struct platform_device *pdev)
 {
 	struct tegra_otg_data *tegra = platform_get_drvdata(pdev);
+
+	if (tegra->vbus_reg)
+		regulator_put(tegra->vbus_reg);
+
+	if (tegra->support_y_cable && tegra->vbus_bat_reg)
+		regulator_put(tegra->vbus_bat_reg);
 
 	pm_runtime_disable(tegra->phy.dev);
 	usb_set_transceiver(NULL);
@@ -543,6 +652,9 @@ static int tegra_otg_suspend(struct device *dev)
 	/* suspend peripheral mode, host mode is taken care by host driver */
 	if (from == OTG_STATE_B_PERIPHERAL)
 		tegra_change_otg_state(tegra, OTG_STATE_A_SUSPEND);
+
+	if (from == OTG_STATE_A_HOST && tegra->turn_off_vbus_on_lp0)
+		tegra_otg_vbus_enable(tegra->vbus_reg, 0);
 
 	tegra->suspended = true;
 
@@ -583,8 +695,21 @@ static void tegra_otg_resume(struct device *dev)
 	else
 		tegra->int_status = val | USB_VBUS_INT_EN | USB_VBUS_WAKEUP_EN |
 			USB_ID_PIN_WAKEUP_EN;
-
 	spin_unlock_irqrestore(&tegra->lock, flags);
+
+	if (tegra->turn_off_vbus_on_lp0 &&
+		!(tegra->int_status & USB_ID_STATUS)) {
+		/* Handle Y-cable */
+		if (tegra->support_y_cable &&
+				(tegra->int_status & USB_VBUS_STATUS)) {
+			tegra_otg_set_current(tegra->vbus_bat_reg,
+				YCABLE_CHARGING_CURRENT_UA);
+			tegra->y_cable_conn = true;
+		} else {
+			tegra_otg_vbus_enable(tegra->vbus_reg, 1);
+		}
+	}
+
 	schedule_work(&tegra->work);
 
 	enable_interrupt(tegra, true);
@@ -616,7 +741,7 @@ static int __init tegra_otg_init(void)
 {
 	return platform_driver_register(&tegra_otg_driver);
 }
-subsys_initcall(tegra_otg_init);
+fs_initcall(tegra_otg_init);
 
 static void __exit tegra_otg_exit(void)
 {
