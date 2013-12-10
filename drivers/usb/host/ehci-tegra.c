@@ -68,6 +68,13 @@ static struct usb_phy *get_usb_phy(struct tegra_usb_phy *x)
 	return (struct usb_phy *)x;
 }
 
+static void tegra_ehci_notify_event(struct tegra_ehci_hcd *tegra, int event)
+{
+	tegra->transceiver->last_event = event;
+	atomic_notifier_call_chain(&tegra->transceiver->notifier, event,
+					 tegra->transceiver->otg->gadget);
+}
+
 static void free_align_buffer(struct urb *urb, struct usb_hcd *hcd)
 {
 	struct dma_align_buffer *temp = container_of(urb->transfer_buffer,
@@ -598,8 +605,10 @@ fail_io:
 static int tegra_ehci_resume(struct platform_device *pdev)
 {
 	struct tegra_ehci_hcd *tegra = platform_get_drvdata(pdev);
-	if (tegra_usb_phy_otg_supported(tegra->phy))
+	if (tegra_usb_phy_otg_supported(tegra->phy)) {
 		tegra_usb_enable_vbus(tegra->phy, true);
+		tegra_ehci_notify_event(tegra, USB_EVENT_ID);
+	}
 	return tegra_usb_phy_power_on(tegra->phy);
 }
 
