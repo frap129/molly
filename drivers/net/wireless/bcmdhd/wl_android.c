@@ -1463,6 +1463,11 @@ static int wifi_request_edp_state(struct edp_client *pinfo, int new_state)
 }
 #endif
 
+#ifdef ENABLE_WiFI_BT_TURN_ON_SYNC
+extern void bt_wlan_lock(void);
+extern void bt_wlan_unlock(void);
+#endif
+
 int wifi_set_power(int on, unsigned long msec)
 {
 	int ret = 0;
@@ -1503,8 +1508,20 @@ int wifi_set_power(int on, unsigned long msec)
 		}
 #endif /* ENABLE_4335BT_WAR */
 
+#ifdef ENABLE_WiFI_BT_TURN_ON_SYNC
+               bt_wlan_lock();
+               if (on)
+                       msleep(600);
+               else
+                       msleep(50);
+#endif
+
 		if (wifi_control_data->set_power)
 			ret = wifi_control_data->set_power(on);
+
+#ifdef ENABLE_WiFI_BT_TURN_ON_SYNC
+               bt_wlan_unlock();
+#endif
 
 		if (wifi_regulator && !on)
 			ret = regulator_disable(wifi_regulator);

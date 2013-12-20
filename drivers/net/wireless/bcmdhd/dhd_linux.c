@@ -31,6 +31,7 @@
 
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/kthread.h>
 #include <linux/slab.h>
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
@@ -562,6 +563,10 @@ static void dhd_dump_htsfhisto(histo_t *his, char *s);
 int dhd_monitor_init(void *dhd_pub);
 int dhd_monitor_uninit(void);
 
+#ifdef SYSFS_IDLETIME
+int dhd_sysfs_init(dhd_pub_t *dhdp);
+int dhd_sysfs_deinit(void);
+#endif /* SYSFS_IDLETIME */
 
 
 #if defined(WL_WIRELESS_EXT)
@@ -3532,7 +3537,7 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen, void *dev)
 
 	if (dhd_watchdog_prio >= 0) {
 		/* Initialize watchdog thread */
-		PROC_START(dhd_watchdog_thread, dhd, &dhd->thr_wdt_ctl, 0, "dhd_watchdog_thread");
+		PROC_START2(dhd_watchdog_thread, dhd, &dhd->thr_wdt_ctl, 0, "dhd_watchdog_thread");
 
 	} else {
 		dhd->thr_wdt_ctl.thr_pid = -1;
@@ -3541,7 +3546,7 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen, void *dev)
 	/* Set up the bottom half handler */
 	if (dhd_dpc_prio >= 0) {
 		/* Initialize DPC thread */
-		PROC_START(dhd_dpc_thread, dhd, &dhd->thr_dpc_ctl, 0, "dhd_dpc");
+		PROC_START2(dhd_dpc_thread, dhd, &dhd->thr_dpc_ctl, 0, "dhd_dpc");
 	} else {
 		/*  use tasklet for dpc */
 		tasklet_init(&dhd->tasklet, dhd_dpc, (ulong)dhd);
@@ -3550,7 +3555,7 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen, void *dev)
 #ifdef RXFRAME_THREAD
 	bzero(&dhd->pub.skbbuf[0], sizeof(void *) * MAXSKBPEND);
 	/* Initialize RXF thread */
-	PROC_START(dhd_rxf_thread, dhd, &dhd->thr_rxf_ctl, 0, "dhd_rxf");
+	PROC_START2(dhd_rxf_thread, dhd, &dhd->thr_rxf_ctl, 0, "dhd_rxf");
 #endif
 #else
 	/* Set up the bottom half handler */
@@ -3559,7 +3564,7 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen, void *dev)
 #endif /* DHDTHREAD */
 
 	if (dhd_sysioc) {
-		PROC_START(_dhd_sysioc_thread, dhd, &dhd->thr_sysioc_ctl, 0, "dhd_sysioc");
+		PROC_START2(_dhd_sysioc_thread, dhd, &dhd->thr_sysioc_ctl, 0, "dhd_sysioc");
 	} else {
 		dhd->thr_sysioc_ctl.thr_pid = -1;
 	}
@@ -3569,6 +3574,9 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen, void *dev)
 	INIT_WORK(&dhd->work_hang, dhd_hang_process);
 #endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))  */
 
+#ifdef SYSFS_IDLETIME
+       dhd_sysfs_init(&dhd->pub);
+#endif /* SYSFS_IDLETIME */
 	/*
 	 * Save the dhd_info into the priv
 	 */
@@ -4968,6 +4976,11 @@ void dhd_detach(dhd_pub_t *dhdp)
 		wake_lock_destroy(&dhd->wl_wdwake);
 #endif /* CONFIG_HAS_WAKELOCK */
 	}
+
+#ifdef SYSFS_IDLETIME
+       dhd_sysfs_deinit();
+#endif /* SYSFS_IDLETIME */
+
 }
 
 

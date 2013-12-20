@@ -1401,6 +1401,7 @@ wl_cfg80211_del_virtual_iface(struct wiphy *wiphy, bcm_struct_cfgdev *cfgdev)
 			if (wl_get_drv_status(wl, DISCONNECTING, dev) &&
 				(wl_get_mode_by_netdev(wl, dev) != WL_MODE_AP)) {
 				WL_ERR(("Wait for Link Down event for GC !\n"));
+				INIT_COMPLETION(wl->iface_disable);
 				wait_for_completion_timeout
 					(&wl->iface_disable, msecs_to_jiffies(500));
 			}
@@ -1417,6 +1418,7 @@ wl_cfg80211_del_virtual_iface(struct wiphy *wiphy, bcm_struct_cfgdev *cfgdev)
 				 */
 				if (ret == 0) {
 					WL_ERR(("Wait for Link Down event for GO !!!\n"));
+					INIT_COMPLETION(wl->iface_disable);
 					wait_for_completion_timeout(&wl->iface_disable,
 						msecs_to_jiffies(500));
 				} else if (ret != BCME_UNSUPPORTED) {
@@ -8377,7 +8379,7 @@ static s32 wl_create_event_handler(struct wl_priv *wl)
 	/* Do not use DHD in cfg driver */
 	wl->event_tsk.thr_pid = -1;
 
-	PROC_START(wl_event_handler, wl, &wl->event_tsk, 0, "wl_event_handler");
+	PROC_START2(wl_event_handler, wl, &wl->event_tsk, 0, "wl_event_handler");
 	if (wl->event_tsk.thr_pid < 0)
 		ret = -ENOMEM;
 	return ret;

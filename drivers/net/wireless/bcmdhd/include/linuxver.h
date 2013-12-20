@@ -522,7 +522,7 @@ typedef struct {
 	void	*parent;  /* some external entity that the thread supposed to work for */
 	char	*proc_name;
 	struct	task_struct *p_task;
-	long	thr_pid;
+	pid_t	thr_pid;
 	int		prio; /* priority */
 	struct	semaphore sema;
 	int	terminated;
@@ -594,9 +594,22 @@ static inline bool binary_sema_up(tsk_ctl_t *tsk)
 	(tsk_ctl)->p_task  = kthread_run(thread_func, tsk_ctl, (char*)name); \
 	(tsk_ctl)->thr_pid = (tsk_ctl)->p_task->pid; \
 	spin_lock_init(&((tsk_ctl)->spinlock)); \
-	DBG_THR(("%s(): thread:%s:%lx started\n", __FUNCTION__, \
+	DBG_THR(("%s(): thread:%s:%d started\n", __FUNCTION__, \
 		(tsk_ctl)->proc_name, (tsk_ctl)->thr_pid)); \
 }
+
+#ifdef USE_KTHREAD_API
+#define PROC_START2(thread_func, owner, tsk_ctl, flags, name) \
+{ \
+        sema_init(&((tsk_ctl)->sema), 0); \
+        init_completion(&((tsk_ctl)->completed)); \
+        (tsk_ctl)->parent = owner; \
+        (tsk_ctl)->terminated = FALSE; \
+        (tsk_ctl)->p_task  = kthread_run(thread_func, tsk_ctl, (char*)name); \
+        (tsk_ctl)->thr_pid = (tsk_ctl)->p_task->pid; \
+        DBG_THR(("%s thr:%d created\n", __FUNCTION__, (tsk_ctl)->thr_pid)); \
+}
+#endif
 
 #define PROC_STOP(tsk_ctl) \
 { \
