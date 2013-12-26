@@ -1,6 +1,6 @@
 /*
 * Copyright (C) 2012 Invensense, Inc.
-* Copyright (c) 2013 NVIDIA CORPORATION.  All rights reserved.
+* Copyright (c) 2013-2014, NVIDIA CORPORATION.  All rights reserved.
 *
 * This software is licensed under the terms of the GNU General Public
 * License version 2, as published by the Free Software Foundation, and
@@ -3156,8 +3156,9 @@ static ssize_t inv_get_accl_bias_show(struct device *dev,
 	int result;
 	int bias[3];
 	struct inv_gyro_state_s *st = dev_get_drvdata(dev);
-
+	mutex_lock(&st->mutex);
 	result = inv_get_accl_bias(st, bias);
+	mutex_unlock(&st->mutex);
 	if (result)
 		return -EINVAL;
 
