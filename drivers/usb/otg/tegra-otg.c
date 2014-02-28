@@ -52,7 +52,7 @@
 #define DBG(stuff...)	do {} while (0)
 #endif
 
-#define YCABLE_CHARGING_CURRENT_UA 500000u
+#define YCABLE_CHARGING_CURRENT_UA 1200000u
 
 struct tegra_otg_data {
 	struct platform_device *pdev;
