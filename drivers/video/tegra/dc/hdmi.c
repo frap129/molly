@@ -917,7 +917,9 @@ static bool tegra_dc_hdmi_detect(struct tegra_dc *dc)
 		}
 		hdmi->eld_retrieved = true;
 
+		mutex_unlock(&dc->lock);
 		tegra_dc_hdmi_detect_config(dc, &specs);
+		return true;
 	}
 
 success:
