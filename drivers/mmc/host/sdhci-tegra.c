@@ -1343,6 +1343,10 @@ static int sdhci_tegra_run_frequency_tuning(struct sdhci_host *sdhci)
 	int flags;
 	u32 intstatus;
 
+	if (gpio_is_valid(tegra_host->plat->cd_gpio) &&
+			(gpio_get_value(tegra_host->plat->cd_gpio) != 0))
+		return -ENOMEDIUM;
+
 	mask = SDHCI_CMD_INHIBIT | SDHCI_DATA_INHIBIT;
 	while (sdhci_readl(sdhci, SDHCI_PRESENT_STATE) & mask) {
 		if (timeout == 0) {
@@ -1434,6 +1438,8 @@ static int sdhci_tegra_scan_tap_values(struct sdhci_host *sdhci,
 
 		/* Run frequency tuning */
 		err = sdhci_tegra_run_frequency_tuning(sdhci);
+		if (err == -ENOMEDIUM)
+			return err;
 		if (err && retry) {
 			retry--;
 			continue;
@@ -1470,7 +1476,10 @@ static int sdhci_tegra_get_tap_window_data(struct sdhci_host *sdhci,
 	/* Get the partial window data */
 	tap_value = 0;
 	tap_value = sdhci_tegra_scan_tap_values(sdhci, tap_value, false);
-	if (!tap_value) {
+	if (tap_value < 0) {
+		err = tap_value;
+		goto out;
+	} else if (!tap_value) {
 		tap_data->abandon_partial_win = true;
 		tap_data->partial_win = 0;
 	} else if (tap_value > MAX_TAP_VALUES) {
@@ -1495,7 +1504,10 @@ static int sdhci_tegra_get_tap_window_data(struct sdhci_host *sdhci,
 		/* Get the full window start */
 		tap_value++;
 		tap_value = sdhci_tegra_scan_tap_values(sdhci, tap_value, true);
-		if (tap_value > MAX_TAP_VALUES) {
+		if (tap_value < 0) {
+			err = tap_value;
+			goto out;
+		} else if (tap_value > MAX_TAP_VALUES) {
 			/* All tap values exhausted. No full window */
 			tap_data->abandon_full_win = true;
 			goto out;
@@ -1515,6 +1527,10 @@ static int sdhci_tegra_get_tap_window_data(struct sdhci_host *sdhci,
 		tap_value++;
 		tap_value = sdhci_tegra_scan_tap_values(sdhci,
 				tap_value, false);
+		if (tap_value < 0) {
+			err = tap_value;
+			goto out;
+		}
 		tap_data->full_win_end = tap_value - 1;
 		if (tap_value > MAX_TAP_VALUES)
 			tap_data->full_win_end = MAX_TAP_VALUES;
@@ -1780,7 +1796,8 @@ out:
 	 * for the first time. The override setting will be removed once
 	 * retuning is called.
 	 */
-	if (tegra_host->set_tuning_override) {
+	if ((tegra_host->set_tuning_override) &&
+			(err != -ENOMEDIUM)) {
 		dev_info(mmc_dev(sdhci->mmc),
 			"Nominal core voltage being set until retuning\n");
 		spin_unlock(&sdhci->lock);
