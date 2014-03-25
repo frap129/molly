@@ -88,6 +88,7 @@ static int nrpacks = 8;		/* max. number of packets per urb */
 static bool async_unlink = 1;
 static int device_setup[SNDRV_CARDS]; /* device parameter for this card */
 static bool ignore_ctl_error;
+static int usb_nonswitch_match(struct usb_device* udev);
 
 module_param_array(index, int, NULL, 0444);
 MODULE_PARM_DESC(index, "Index value for the USB audio adapter.");
@@ -539,7 +540,8 @@ snd_usb_audio_probe(struct usb_device *dev,
 	}
 
 #ifdef CONFIG_SWITCH
-	switch_set_state(&usb_switch_dev, STATE_CONNECTED);
+	if (!usb_nonswitch_match(dev))
+		switch_set_state(&usb_switch_dev, STATE_CONNECTED);
 #endif
 
 	usb_chip[chip->index] = chip;
@@ -570,6 +572,7 @@ static void snd_usb_audio_disconnect(struct usb_device *dev,
 {
 	struct snd_card *card;
 	struct list_head *p;
+	int i;
 
 	if (chip == (void *)-1L)
 		return;
@@ -581,7 +584,12 @@ static void snd_usb_audio_disconnect(struct usb_device *dev,
 	chip->num_interfaces--;
 
 #ifdef CONFIG_SWITCH
-	switch_set_state(&usb_switch_dev, STATE_DISCONNECTED);
+	for (i = 0; i < chip->index; i++) {
+		if (usb_chip[i] && !usb_nonswitch_match(usb_chip[i]->dev))
+			break;
+	}
+	if ((i == chip->index) && !usb_nonswitch_match(dev))
+		switch_set_state(&usb_switch_dev, STATE_DISCONNECTED);
 #endif
 
 	if (chip->num_interfaces <= 0) {
@@ -720,7 +728,22 @@ static struct usb_device_id usb_audio_ids [] = {
     { }						/* Terminating entry */
 };
 
-MODULE_DEVICE_TABLE (usb, usb_audio_ids);
+#ifdef CONFIG_SWITCH
+static struct usb_device_id usb_nonswitch_ids [] = {
+#include "nonswitch-table.h"
+    { }
+};
+
+static int usb_nonswitch_match(struct usb_device* udev) {
+	int i;
+	for(i = 0; i < sizeof(usb_nonswitch_ids); i++) {
+		if ((usb_nonswitch_ids[i].idVendor == udev->descriptor.idVendor) &&
+				(usb_nonswitch_ids[i].idProduct == udev->descriptor.idProduct))
+			return 1;
+	}
+	return 0;
+}
+#endif
 
 /*
  * entry point for linux usb interface
