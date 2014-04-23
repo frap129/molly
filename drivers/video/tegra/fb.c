@@ -6,7 +6,7 @@
  *         Colin Cross <ccross@android.com>
  *         Travis Geiselbrecht <travis@palm.com>
  *
- * Copyright (c) 2010-2012, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2010-2014, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -287,7 +287,7 @@ static int tegra_fb_blank(int blank, struct fb_info *info)
 
 	case FB_BLANK_NORMAL:
 		dev_dbg(&tegra_fb->ndev->dev, "blank - normal\n");
-		tegra_dc_blank(tegra_fb->win->dc);
+		tegra_dc_blank(tegra_fb->win->dc, BLANK_ALL);
 		return 0;
 
 	case FB_BLANK_VSYNC_SUSPEND:

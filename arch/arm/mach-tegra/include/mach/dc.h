@@ -6,7 +6,7 @@
  * Author:
  *	Erik Gilling <konkers@google.com>
  *
- * Copyright (C) 2010-2011 NVIDIA Corporation
+ * Copyright (c) 2010-2014, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -685,7 +685,7 @@ bool tegra_dc_hpd(struct tegra_dc *dc);
 
 void tegra_dc_get_fbvblank(struct tegra_dc *dc, struct fb_vblank *vblank);
 int tegra_dc_wait_for_vsync(struct tegra_dc *dc);
-void tegra_dc_blank(struct tegra_dc *dc);
+void tegra_dc_blank(struct tegra_dc *dc, unsigned windows);
 
 void tegra_dc_enable(struct tegra_dc *dc);
 void tegra_dc_disable(struct tegra_dc *dc);
