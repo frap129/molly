@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2010 Google, Inc.
  *
- * Copyright (c) 2010-2013, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2010-2014, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -406,16 +406,12 @@ int tegra_dc_update_windows(struct tegra_dc_win *windows[], int n)
 			V_SIZE(win->out_h) | H_SIZE(win->out_w),
 			DC_WIN_SIZE);
 
-		/* Check scan_column flag to set window size and scaling. */
 		win_options = WIN_ENABLE;
-		if (scan_column) {
+		if (scan_column)
 			win_options |= WIN_SCAN_COLUMN;
-			win_options |= H_FILTER_ENABLE(filter_v);
-			win_options |= V_FILTER_ENABLE(filter_h);
-		} else {
-			win_options |= H_FILTER_ENABLE(filter_h);
-			win_options |= V_FILTER_ENABLE(filter_v);
-		}
+
+		win_options |= H_FILTER_ENABLE(filter_h);
+		win_options |= V_FILTER_ENABLE(filter_v);
 
 		/* Update scaling registers if window supports scaling. */
 		if (likely(tegra_dc_feature_has_scaling(dc, win->idx)))
