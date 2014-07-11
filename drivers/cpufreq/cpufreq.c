@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 2001 Russell King
  *            (C) 2002 - 2003 Dominik Brodowski <linux@brodo.de>
+ *  Copyright (c) 2014, NVIDIA CORPORATION.  All rights reserved.
  *
  *  Oct 2005 - Ashok Raj <ashok.raj@intel.com>
  *	Added handling for CPU hotplug
@@ -1135,6 +1136,7 @@ static int __cpufreq_remove_dev(struct device *dev, struct subsys_interface *sif
 	}
 #endif
 
+	cancel_work_sync(&data->update);
 	free_cpumask_var(data->related_cpus);
 	free_cpumask_var(data->cpus);
 	kfree(data);
