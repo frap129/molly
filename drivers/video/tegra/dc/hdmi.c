@@ -2043,6 +2043,13 @@ static void tegra_dc_hdmi_disable(struct tegra_dc *dc)
 {
 	struct tegra_dc_hdmi_data *hdmi = tegra_dc_get_outdata(dc);
 
+	/*
+	* set DC to STOP mode
+	*/
+	tegra_dc_writel(dc, DISP_CTRL_MODE_STOP, DC_CMD_DISPLAY_COMMAND);
+	tegra_dc_writel(dc, GENERAL_UPDATE, DC_CMD_STATE_CONTROL);
+	tegra_dc_writel(dc, GENERAL_ACT_REQ, DC_CMD_STATE_CONTROL);
+
 	tegra_nvhdcp_set_plug(hdmi->nvhdcp, 0);
 
 #if !defined(CONFIG_ARCH_TEGRA_2x_SOC)
