@@ -728,6 +728,8 @@ static struct usb_device_id usb_audio_ids [] = {
     { }						/* Terminating entry */
 };
 
+MODULE_DEVICE_TABLE (usb, usb_audio_ids);
+
 #ifdef CONFIG_SWITCH
 static struct usb_device_id usb_nonswitch_ids [] = {
 #include "nonswitch-table.h"
