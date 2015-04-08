@@ -181,6 +181,11 @@ static __initdata struct tegra_drive_pingroup_config roth_drive_pinmux[] = {
 								FASTEST, 1),
 };
 
+static __initdata struct tegra_pingroup_config e2542_uart_config_pinmux[] = {
+	DEFAULT_PINMUX(SDMMC3_CMD,    UARTA,       NORMAL,    NORMAL,   INPUT),
+	DEFAULT_PINMUX(SDMMC3_DAT1,   UARTA,       NORMAL,    NORMAL,   OUTPUT),
+};
+
 /* Initially setting all used GPIO's to non-TRISTATE */
 static __initdata struct tegra_pingroup_config roth_pinmux_set_nontristate[] = {
 	DEFAULT_PINMUX(GPIO_X4_AUD,     RSVD,   PULL_UP,      NORMAL,    INPUT),
@@ -281,6 +286,9 @@ int __init roth_pinmux_init(void)
 					ARRAY_SIZE(roth_drive_pinmux));
 	tegra_pinmux_config_table(unused_pins_lowpower,
 		ARRAY_SIZE(unused_pins_lowpower));
+	if (get_tegra_uart_debug_port_id() == UART_FROM_SDCARD)
+		tegra_pinmux_config_table(e2542_uart_config_pinmux,
+			 ARRAY_SIZE(e2542_uart_config_pinmux));
 
 	return 0;
 }
