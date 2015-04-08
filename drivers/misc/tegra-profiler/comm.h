@@ -1,7 +1,7 @@
 /*
  * drivers/misc/tegra-profiler/comm.h
  *
- * Copyright (c) 2014, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2015, NVIDIA CORPORATION.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -77,8 +77,6 @@ struct quadd_comm_ctx {
 	wait_queue_head_t read_wait;
 
 	struct miscdevice *misc_dev;
-
-	char *tmp_buf;
 };
 
 struct quadd_comm_data_interface *
