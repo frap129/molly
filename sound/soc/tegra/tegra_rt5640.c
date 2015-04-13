@@ -163,6 +163,7 @@ static int tegra_rt5640_hw_params(struct snd_pcm_substream *substream,
 		return err;
 	}
 	if (machine_is_roth()) {
+		initTfa++;
 		if (initTfa == 1) {
 			i2s_tfa = i2s;
 			tegra_asoc_enable_clocks();
@@ -176,7 +177,6 @@ static int tegra_rt5640_hw_params(struct snd_pcm_substream *substream,
 				tfasrate = srate;
 			}
 		}
-		initTfa++;
 	}
 	return 0;
 }
