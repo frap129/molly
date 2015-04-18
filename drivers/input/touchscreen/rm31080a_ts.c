@@ -1,8 +1,9 @@
 /*
  * Raydium RM31080 touchscreen driver
  *
- * Copyright (C) 2012-2013, Raydium Semiconductor Corporation.  All Rights Reserved.
- * Copyright (C) 2012-2013, NVIDIA Corporation.  All Rights Reserved.
+ * Copyright (C) 2012-2014, Raydium Semiconductor Corporation.
+ * All Rights Reserved.
+ * Copyright (C) 2012-2014, NVIDIA Corporation.  All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -1780,6 +1781,18 @@ static int rm_tch_resume(struct device *dev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int rm_tch_dummy_suspend(struct device *dev)
+{
+	return 0;
+}
+
+static int rm_tch_dummy_resume(struct device *dev)
+{
+	return 0;
+}
+#endif
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void rm_tch_early_suspend(struct early_suspend *es)
 {
@@ -1810,8 +1823,8 @@ static void rm_tch_early_resume(struct early_suspend *es)
 
 #ifdef CONFIG_PM
 static const struct dev_pm_ops rm_tch_pm_ops = {
-	.suspend = rm_tch_suspend,
-	.resume = rm_tch_resume,
+	.suspend = rm_tch_dummy_suspend,
+	.resume = rm_tch_dummy_resume,
 };
 #endif			/*CONFIG_PM*/
 
