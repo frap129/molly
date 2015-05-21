@@ -104,10 +104,14 @@
 #endif /* WL_SUPPORT_AUTO_CHANNEL */
 
 #define CMD_SETMIRACAST 	"SETMIRACAST"
-#define CMD_ASSOCRESPIE		"ASSOCRESPIE"
+#define CMD_ASSOCRESPIE 	"ASSOCRESPIE"
 #define CMD_MAXLINKSPEED	"MAXLINKSPEED"
 #define CMD_RXRATESTATS 	"RXRATESTATS"
 #define CMD_AMPDU_SEND_DELBA	"AMPDU_SEND_DELBA"
+
+/* Commands for iovar settings */
+#define CMD_SETIOVAR		"SETIOVAR"
+#define CMD_GETIOVAR		"GETIOVAR"
 
 /* CCX Private Commands */
 
@@ -123,6 +127,7 @@
 #define CMD_OKC_ENABLE		"OKC_ENABLE"
 
 #define	CMD_HAPD_MAC_FILTER	"HAPD_MAC_FILTER"
+#define	CMD_AUTOSLEEP		"AUTOSLEEP"
 /* hostap mac mode */
 #define MACLIST_MODE_DISABLED   0
 #define MACLIST_MODE_DENY       1
@@ -199,6 +204,7 @@ extern int dhd_os_check_if_up(void *dhdp);
 #ifdef BCMLXSDMMC
 extern void *bcmsdh_get_drvdata(void);
 #endif /* BCMLXSDMMC */
+extern int dhd_set_slpauto_mode(struct net_device *dev, s32 val);
 
 
 #ifdef ENABLE_4335BT_WAR
@@ -830,6 +836,21 @@ int wl_android_set_roam_mode(struct net_device *dev, char *command, int total_le
 	return 0;
 }
 
+int wl_android_set_slpauto(struct net_device *dev, char *command, int total_len)
+{
+	int error = 0;
+	char slpauto_enable = 0;
+
+	slpauto_enable = command[strlen(CMD_AUTOSLEEP) + 1] - '0';
+	error = dhd_set_slpauto_mode(dev, slpauto_enable);
+	if (error) {
+		DHD_ERROR(("Failed to %s auto sleep, error = %d\n",
+			slpauto_enable ? "enable" : "disable", error));
+	}
+
+	return error;
+}
+
 int wl_android_set_ibss_beacon_ouidata(struct net_device *dev, char *command, int total_len)
 {
 	char ie_buf[VNDR_IE_MAX_LEN];
@@ -1233,6 +1254,82 @@ exit:
 
 }
 
+static int wl_android_get_iovar(struct net_device *dev, char *command,
+					int total_len)
+{
+	int skip = strlen(CMD_GETIOVAR) + 1;
+	char iovbuf[WLC_IOCTL_SMLEN];
+	s32 param = -1;
+	int bytes_written = 0;
+
+	if (strlen(command) < skip ) {
+		DHD_ERROR(("%s: Invalid command length", __func__));
+		return BCME_BADARG;
+	}
+
+	DHD_INFO(("%s: command buffer %s command length:%d\n",
+			__func__, (command + skip), strlen(command + skip)));
+
+	/* Initiate get_iovar command */
+	memset(iovbuf, 0, sizeof(iovbuf));
+	bytes_written = wldev_iovar_getbuf(dev, (command + skip), &param,
+				sizeof(param), iovbuf, sizeof(iovbuf), NULL);
+
+	/* Check for errors, log the error and reset bytes written value */
+	if (bytes_written < 0) {
+		DHD_ERROR(("%s: get iovar failed (error=%d)\n",
+				__func__, bytes_written));
+		bytes_written = 0;
+	} else {
+		snprintf(command, total_len, iovbuf);
+		bytes_written = snprintf(command, total_len,
+					"%d:%s", dtoh32(param), iovbuf);
+		DHD_INFO(("%s: param:%d iovbuf:%s strlen(iovbuf):%d"
+				" bytes_written:%d\n", __func__, param, iovbuf,
+				strlen(iovbuf), bytes_written));
+	}
+
+	return bytes_written;
+}
+
+static int wl_android_set_iovar(struct net_device *dev, char *command,
+					int total_len)
+{
+	int skip = strlen(CMD_GETIOVAR) + 1;
+	char iovbuf[WLC_IOCTL_SMLEN];
+	char iovar[WLC_IOCTL_SMLEN];
+	s32 param = -1;
+	int bytes_written = 0;
+	int ret = -1;
+
+	if (strlen(command) < skip ) {
+		DHD_ERROR(("Short command length"));
+		return BCME_BADARG;
+	}
+
+	DHD_INFO(("%s: command buffer:%s command length:%d\n",
+			__func__, (command + skip), strlen(command + skip)));
+
+	/* Parse command and get iovbuf and param values */
+	memset(iovbuf, 0, sizeof(iovbuf));
+	memset(iovar, 0, sizeof(iovbuf));
+	ret = sscanf((command + skip), "%s %d:%s", iovar, &param, iovbuf);
+	if (ret < 3) {
+		DHD_ERROR(("%s: Failed to get Parameter %d\n", __func__, ret));
+		return BCME_BADARG;
+	}
+	DHD_INFO(("%s: iovar:%s param:%d iovbuf:%s strlen(iovbuf):%d\n", __func__,
+			iovar, param, iovbuf, strlen(iovbuf)));
+
+	bytes_written = wldev_iovar_setbuf(dev, iovar, &param,
+				sizeof(param), iovbuf, sizeof(iovbuf), NULL);
+	if (bytes_written < 0)
+		DHD_ERROR(("%s: set iovar failed (error=%d)\n",
+				__func__, bytes_written));
+
+	return bytes_written;
+}
+
 int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 {
 #define PRIVATE_COMMAND_MAX_LEN	8192
@@ -1450,6 +1547,14 @@ priv_cmd.total_len);
 		strlen(CMD_MKEEP_ALIVE)) == 0) {
 		DHD_ERROR(("%s: CMD_MKEEP_ALIVE\n", __func__));
 		bytes_written = wl_android_mkeep_alive(net, command, priv_cmd.total_len);
+	}
+	else if (strnicmp(command, CMD_GETIOVAR, strlen(CMD_GETIOVAR)) == 0)
+		bytes_written = wl_android_get_iovar(net, command, priv_cmd.total_len);
+	else if (strnicmp(command, CMD_SETIOVAR, strlen(CMD_GETIOVAR)) == 0)
+		bytes_written = wl_android_set_iovar(net, command, priv_cmd.total_len);
+	else if (strnicmp(command, CMD_AUTOSLEEP, strlen(CMD_AUTOSLEEP)) == 0) {
+		bytes_written = wl_android_set_slpauto(net, command,
+			priv_cmd.total_len);
 	}
 	else {
 		DHD_ERROR(("Unknown PRIVATE command %s - ignored\n", command));
