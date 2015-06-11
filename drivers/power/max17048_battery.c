@@ -629,11 +629,6 @@ static int max17048_suspend(struct i2c_client *client,
 	int ret;
 
 	cancel_delayed_work_sync(&chip->work);
-	ret = max17048_write_word(client, MAX17048_HIBRT, 0xffff);
-	if (ret < 0) {
-		dev_err(&client->dev, "failed in entering hibernate mode\n");
-		return ret;
-	}
 
 	return 0;
 }
@@ -644,13 +639,7 @@ static int max17048_resume(struct i2c_client *client)
 	int ret;
 	struct max17048_battery_model *mdata = chip->pdata->model_data;
 
-	ret = max17048_write_word(client, MAX17048_HIBRT, mdata->hibernate);
-	if (ret < 0) {
-		dev_err(&client->dev, "failed in exiting hibernate mode\n");
-		return ret;
-	}
-
-	schedule_delayed_work(&chip->work, MAX17048_DELAY);
+	schedule_delayed_work(&chip->work, 0);
 
 	return 0;
 }
