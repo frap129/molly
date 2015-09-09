@@ -105,7 +105,6 @@ enum RM_SLOW_SCAN_LEVELS {
 #define RM_WINTEK_7_CHANNEL_X 30
 
 #define TS_TIMER_PERIOD		HZ
-#define CTRL_BY_POWER_HAL
 
 #define WDT_INIT_TIME		6000 /* 60 sec */
 #define WDT_NORMAL_TIME		100 /* 1 sec */
@@ -1762,6 +1761,7 @@ static void rm_ctrl_stop(struct rm_tch_ts *ts)
 	mutex_unlock(&g_stTs.mutex_scan_mode);
 }
 
+#ifdef CONFIG_PM
 static int rm_tch_suspend(struct device *dev)
 {
 	struct rm_tch_ts *ts = dev_get_drvdata(dev);
@@ -1779,8 +1779,7 @@ static int rm_tch_resume(struct device *dev)
 	rm_ctrl_start(ts);
 	return 0;
 }
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
+#if defined(CONFIG_HAS_EARLYSUSPEND)
 static void rm_tch_early_suspend(struct early_suspend *es)
 {
 	struct rm_tch_ts *ts;
@@ -1806,13 +1805,12 @@ static void rm_tch_early_resume(struct early_suspend *es)
 		dev_err(dev, "%s: failed\n", __func__);
 	}
 }
-#endif			/*CONFIG_HAS_EARLYSUSPEND*/
-
-#ifdef CONFIG_PM
+#else
 static const struct dev_pm_ops rm_tch_pm_ops = {
 	.suspend = rm_tch_suspend,
 	.resume = rm_tch_resume,
 };
+#endif			/*CONFIG_HAS_EARLYSUSPEND*/
 #endif			/*CONFIG_PM*/
 
 /* NVIDIA 20121026 */
@@ -1820,11 +1818,14 @@ static const struct dev_pm_ops rm_tch_pm_ops = {
 static int rm_tch_input_enable(struct input_dev *in_dev)
 {
 	int error = 0;
+
+#ifdef CONFIG_PM
 	struct rm_tch_ts *ts = input_get_drvdata(in_dev);
 
 	error = rm_tch_resume(ts->dev);
 	if (error)
 		dev_err(ts->dev, "%s: failed\n", __func__);
+#endif
 
 	return error;
 }
@@ -1832,11 +1833,14 @@ static int rm_tch_input_enable(struct input_dev *in_dev)
 static int rm_tch_input_disable(struct input_dev *in_dev)
 {
 	int error = 0;
+
+#ifdef CONFIG_PM
 	struct rm_tch_ts *ts = input_get_drvdata(in_dev);
 
 	error = rm_tch_suspend(ts->dev);
 	if (error)
 		dev_err(ts->dev, "%s: failed\n", __func__);
+#endif
 
 	return error;
 }
@@ -1931,7 +1935,7 @@ struct rm_tch_ts *rm_tch_input_init(struct device *dev, unsigned int irq,
 		goto err_free_mem;
 	}
 	mutex_init(&ts->access_mutex);
-#ifdef CONFIG_HAS_EARLYSUSPEND
+#if defined(CONFIG_HAS_EARLYSUSPEND)
 	ts->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
 	ts->early_suspend.suspend = rm_tch_early_suspend;
 	ts->early_suspend.resume = rm_tch_early_resume;
@@ -2340,7 +2344,7 @@ err_regulator_init:
 	spi_set_drvdata(spi, NULL);
 	input_unregister_device(ts->input);
 	sysfs_remove_group(&ts->dev->kobj, &rm_ts_attr_group);
-#ifdef CONFIG_HAS_EARLYSUSPEND
+#if defined(CONFIG_HAS_EARLYSUSPEND)
 	unregister_early_suspend(&ts->early_suspend);
 #endif
 	mutex_destroy(&ts->access_mutex);
@@ -2361,8 +2365,10 @@ static struct spi_driver rm_tch_spi_driver = {
 		.name = "rm_ts_spidev",
 		.bus = &spi_bus_type,
 		.owner = THIS_MODULE,
-#if defined(CONFIG_PM) && !defined(CTRL_BY_POWER_HAL)
+#if !defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(CONFIG_PM)
 		.pm = &rm_tch_pm_ops,
+#endif
 #endif
 	},
 	.probe = rm_tch_spi_probe,
