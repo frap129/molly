@@ -6790,7 +6790,7 @@ struct clk tegra_list_clks[] = {
 	SHARED_CLK("edp.emc",	"edp.emc",		NULL,	&tegra_clk_emc, NULL, 0, SHARED_CEILING),
 	SHARED_CLK("battery.emc", "battery_edp",	"emc",	&tegra_clk_emc, NULL, 0, SHARED_CEILING),
 	SHARED_CLK("floor.profile.emc", "profile.emc", NULL, &tegra_clk_emc, NULL,  0, 0),
-	SHARED_EMC_CLK("boot.emc",	"boot",		"emc",	&tegra_clk_emc, NULL, 0, 0, 0),
+	SHARED_CLK("boot.emc",	"boot",		"emc",	&tegra_clk_emc, NULL, 0, 0),
 
 #ifdef CONFIG_TEGRA_DUAL_CBUS
 	DUAL_CBUS_CLK("3d.cbus",	"tegra_gr3d",		"gr3d",	&tegra_clk_c2bus, "3d",  0, 0),
