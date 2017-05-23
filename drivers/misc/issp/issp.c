@@ -181,77 +181,6 @@ void issp_start_recovery_work(void)
 
 }
 
-static ssize_t issp_reset_set(struct device *dev, struct device_attribute *attr,
-		const char *buf, size_t count) {
-	issp_uc_reset();
-	pr_err("issp: toggling reset pin on uC!");
-	return count;
-}
-
-static ssize_t issp_usbreset_set(struct device *dev,
-		struct device_attribute *attr,
-		const char *buf, size_t count) {
-	roth_usb_unload();
-	issp_uc_reset();
-	roth_usb_reload();
-	pr_err("issp: reset both usb and uC!");
-	return count;
-}
-
-static ssize_t issp_data_set(struct device *dev, struct device_attribute *attr,
-		const char *buf, size_t count) {
-	int val;
-	struct issp_platform_data *pdata = dev->platform_data;
-
-	if (!kstrtoul(buf, 10, &val)) {
-		if (val == 1 || val == 0) {
-			gpio_set_value(pdata->data_gpio, val);
-			pr_err("issp: set data gpio to %d", val);
-		}
-	}
-	return count;
-}
-
-static ssize_t issp_data_show(struct device *dev, struct device_attribute *attr,
-		char *buf)  {
-	unsigned int val;
-	struct issp_platform_data *pdata = dev->platform_data;
-	val = gpio_get_value(pdata->data_gpio);
-
-	return sprintf(buf, "%u\n", val);
-}
-
-
-static ssize_t issp_clk_set(struct device *dev, struct device_attribute *attr,
-		const char *buf, size_t count) {
-	int val;
-	struct issp_platform_data *pdata = dev->platform_data;
-
-	if (!kstrtoul(buf, 10, &val)) {
-		if (val == 1 || val == 0) {
-			gpio_set_value(pdata->clk_gpio, val);
-			pr_err("issp: set clk gpio to %d", val);
-		}
-	}
-	return count;
-}
-
-static ssize_t issp_clk_show(struct device *dev, struct device_attribute *attr,
-		char *buf)  {
-	unsigned int val;
-	struct issp_platform_data *pdata = dev->platform_data;
-	val = gpio_get_value(pdata->clk_gpio);
-
-	return sprintf(buf, "%u\n", val);
-}
-
-static DEVICE_ATTR(issp_reset, S_IWGRP|S_IWUSR, NULL, issp_reset_set);
-static DEVICE_ATTR(issp_usbreset, S_IWGRP|S_IWUSR, NULL, issp_usbreset_set);
-static DEVICE_ATTR(issp_data, S_IWGRP|S_IWUSR|S_IRGRP|S_IRUSR,
-		issp_data_show, issp_data_set);
-static DEVICE_ATTR(issp_clk, S_IWGRP|S_IWUSR|S_IRGRP|S_IRUSR,
-		issp_clk_show, issp_clk_set);
-
 static int __init issp_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -319,22 +248,6 @@ static int __init issp_probe(struct platform_device *pdev)
 		else
 			dev_err(dev, "Firmware update failed!\n");
 	}
-
-	ret = device_create_file(dev, &dev_attr_issp_reset);
-	if (ret)
-		dev_err(dev, "ISSP sysfs node create failed\n");
-
-	ret = device_create_file(dev, &dev_attr_issp_usbreset);
-	if (ret)
-		dev_err(dev, "ISSP sysfs node create failed\n");
-
-	ret = device_create_file(dev, &dev_attr_issp_data);
-	if (ret)
-		dev_err(dev, "ISSP sysfs node create failed\n");
-
-	ret = device_create_file(dev, &dev_attr_issp_clk);
-	if (ret)
-		dev_err(dev, "ISSP sysfs node create failed\n");
 
 	g_issp_wake_lock = devm_kzalloc(dev, sizeof(struct wake_lock),
 								GFP_KERNEL);
