@@ -25,7 +25,6 @@
 #include <linux/gpio.h>
 #include <linux/wakelock.h>
 #include <linux/delay.h>
-#include <linux/mutex.h>
 
 #include "issp_priv.h"
 
@@ -159,11 +158,9 @@ static void issp_recovery_work_func(struct work_struct *work)
 	for (i = 0; i < 1; i++) {
 		dev_info(&g_issp_host->pdev->dev,
 				"%s: recovery attempt #%d\n", __func__, i);
-		mutex_lock(&g_issp_host->issp_lock);
 		roth_usb_unload();
 		issp_uc_reset();
 		roth_usb_reload();
-		mutex_unlock(&g_issp_host->issp_lock);
 		msleep(500);
 	}
 
@@ -189,28 +186,22 @@ void issp_start_recovery_work(void)
 
 static ssize_t issp_reset_set(struct device *dev, struct device_attribute *attr,
 		const char *buf, size_t count) {
+	dev_info(dev, "resetting uC\n");
 	wake_lock(g_issp_wake_lock);
-	mutex_lock(&g_issp_host->issp_lock);
 	issp_uc_reset();
-	mutex_unlock(&g_issp_host->issp_lock);
 	wake_unlock(g_issp_wake_lock);
-	dev_info(&g_issp_host->pdev->dev,
-			"issp: toggling reset pin on uC!");
 	return count;
 }
 
 static ssize_t issp_usbreset_set(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t count) {
+	dev_info(dev, "resetting USB and uC\n");
 	wake_lock(g_issp_wake_lock);
-	mutex_lock(&g_issp_host->issp_lock);
 	roth_usb_unload();
 	issp_uc_reset();
 	roth_usb_reload();
-	mutex_unlock(&g_issp_host->issp_lock);
 	wake_unlock(g_issp_wake_lock);
-	dev_info(&g_issp_host->pdev->dev,
-			"issp: reset both usb and uC!");
 	return count;
 }
 
@@ -336,7 +327,6 @@ static int __init issp_probe(struct platform_device *pdev)
 			dev_err(dev, "Firmware update failed!\n");
 	}
 
-	mutex_init(&host->issp_lock);
 	ret = device_create_file(dev, &dev_attr_issp_reset);
 	if (ret)
 		dev_err(dev, "ISSP sysfs node create failed\n");
