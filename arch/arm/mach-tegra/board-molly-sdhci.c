@@ -170,7 +170,6 @@ static struct tegra_sdhci_platform_data tegra_sdhci_platform_data0 = {
 	.ddr_clk_limit = 50000000,
 	.max_clk_limit = 100000000,
 	.uhs_mask = MMC_UHS_MASK_DDR50,
-	.edp_support = false,
 };
 
 static struct tegra_sdhci_platform_data tegra_sdhci_platform_data3 = {
@@ -186,8 +185,6 @@ static struct tegra_sdhci_platform_data tegra_sdhci_platform_data3 = {
 		.built_in = 1,
 		.ocr_mask = MMC_OCR_1V8_MASK,
 	},
-	.edp_support = true,
-	.edp_states = {966, 0},
 };
 
 static struct platform_device tegra_sdhci_device0 = {
