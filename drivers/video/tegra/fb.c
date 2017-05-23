@@ -6,7 +6,7 @@
  *         Colin Cross <ccross@android.com>
  *         Travis Geiselbrecht <travis@palm.com>
  *
- * Copyright (c) 2010-2013, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2010-2014, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -299,7 +299,7 @@ static int tegra_fb_blank(int blank, struct fb_info *info)
 		/* To pan fb at the unblank */
 		if (tegra_fb->win->dc->enabled)
 			tegra_fb->curr_xoffset = -1;
-		tegra_dc_blank(tegra_fb->win->dc);
+		tegra_dc_blank(tegra_fb->win->dc, BLANK_ALL);
 		return 0;
 
 	case FB_BLANK_VSYNC_SUSPEND:

@@ -4,7 +4,7 @@
  * Copyright (C) 2010 Google, Inc.
  * Author: Erik Gilling <konkers@android.com>
  *
- * Copyright (c) 2010-2013, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2010-2014, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -2314,19 +2314,28 @@ bool tegra_dc_stats_get(struct tegra_dc *dc)
 	return true;
 }
 
-/* make the screen blank by disabling all windows */
-void tegra_dc_blank(struct tegra_dc *dc)
+/* blank selected windows by disabling them */
+void tegra_dc_blank(struct tegra_dc *dc, unsigned windows)
 {
 	struct tegra_dc_win *dcwins[DC_N_WINDOWS];
 	unsigned i;
+	unsigned long int blank_windows;
+	int nr_win = 0;
 
-	for (i = 0; i < DC_N_WINDOWS; i++) {
-		dcwins[i] = tegra_dc_get_window(dc, i);
-		dcwins[i]->flags &= ~TEGRA_WIN_FLAG_ENABLED;
+	if (!windows)
+		return;
+
+	blank_windows = windows;
+	for_each_set_bit(i, &blank_windows, DC_N_WINDOWS) {
+		dcwins[nr_win] = tegra_dc_get_window(dc, i);
+		if (!dcwins[nr_win])
+			continue;
+		dcwins[nr_win++]->flags &= ~TEGRA_WIN_FLAG_ENABLED;
 	}
 
-	tegra_dc_update_windows(dcwins, DC_N_WINDOWS);
-	tegra_dc_sync_windows(dcwins, DC_N_WINDOWS);
+	tegra_dc_update_windows(dcwins, nr_win);
+	tegra_dc_sync_windows(dcwins, nr_win);
+	tegra_dc_program_bandwidth(dc, true);
 }
 
 static void _tegra_dc_disable(struct tegra_dc *dc)
@@ -2948,7 +2957,7 @@ static void tegra_dc_shutdown(struct platform_device *ndev)
 	if (!dc || !dc->enabled)
 		return;
 
-	tegra_dc_blank(dc);
+	tegra_dc_blank(dc, BLANK_ALL);
 	tegra_dc_disable(dc);
 }
 

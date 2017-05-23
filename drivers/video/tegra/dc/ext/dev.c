@@ -1,7 +1,7 @@
 /*
  * drivers/video/tegra/dc/dev.c
  *
- * Copyright (c) 2011-2012, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2011-2014, NVIDIA CORPORATION, All rights reserved.
  *
  * Author: Robert Morell <rmorell@nvidia.com>
  * Some code based on fbdev extensions written by:
@@ -327,6 +327,18 @@ int tegra_dc_unset_flip_callback()
 }
 EXPORT_SYMBOL(tegra_dc_unset_flip_callback);
 
+static void tegra_dc_ext_unpin_handles(struct tegra_dc_ext *ext,
+				       struct nvmap_handle_ref *unpin_handles[],
+				       int nr_unpin)
+{
+	int i;
+
+	for (i = 0; i < nr_unpin; i++) {
+		nvmap_unpin(ext->nvmap, unpin_handles[i]);
+		nvmap_free(ext->nvmap, unpin_handles[i]);
+	}
+}
+
 static void tegra_dc_ext_flip_worker(struct work_struct *work)
 {
 	struct tegra_dc_ext_flip_data *data =
@@ -432,10 +444,7 @@ static void tegra_dc_ext_flip_worker(struct work_struct *work)
 	}
 
 	/* unpin and deref previous front buffers */
-	for (i = 0; i < nr_unpin; i++) {
-		nvmap_unpin(ext->nvmap, unpin_handles[i]);
-		nvmap_free(ext->nvmap, unpin_handles[i]);
-	}
+	tegra_dc_ext_unpin_handles(ext, unpin_handles, nr_unpin);
 
 	kfree(data);
 }
@@ -531,6 +540,23 @@ static int sanitize_flip_args(struct tegra_dc_ext_user *user,
 		return -EINVAL;
 
 	return 0;
+}
+
+static void tegra_dc_ext_unpin_window(struct tegra_dc_ext_win *win)
+{
+	struct nvmap_handle_ref *unpin_handles[TEGRA_DC_NUM_PLANES];
+	int nr_unpin = 0;
+
+	if (win->cur_handle[TEGRA_DC_Y]) {
+		int j;
+		for (j = 0; j < TEGRA_DC_NUM_PLANES; j++) {
+			if (win->cur_handle[j])
+				unpin_handles[nr_unpin++] = win->cur_handle[j];
+		}
+		memset(win->cur_handle, 0, sizeof(win->cur_handle));
+	}
+
+	tegra_dc_ext_unpin_handles(win->ext, unpin_handles, nr_unpin);
 }
 
 static int tegra_dc_ext_flip(struct tegra_dc_ext_user *user,
@@ -865,6 +891,7 @@ static long tegra_dc_ioctl(struct file *filp, unsigned int cmd,
 {
 	void __user *user_arg = (void __user *)arg;
 	struct tegra_dc_ext_user *user = filp->private_data;
+	int ret;
 
 	switch (cmd) {
 	case TEGRA_DC_EXT_SET_NVMAP_FD:
@@ -873,7 +900,12 @@ static long tegra_dc_ioctl(struct file *filp, unsigned int cmd,
 	case TEGRA_DC_EXT_GET_WINDOW:
 		return tegra_dc_ext_get_window(user, arg);
 	case TEGRA_DC_EXT_PUT_WINDOW:
-		return tegra_dc_ext_put_window(user, arg);
+		ret = tegra_dc_ext_put_window(user, arg);
+		if (!ret) {
+			tegra_dc_blank(user->ext->dc, BIT(arg));
+			tegra_dc_ext_unpin_window(&user->ext->win[arg]);
+		}
+		return ret;
 
 	case TEGRA_DC_EXT_FLIP:
 	{
@@ -1032,11 +1064,19 @@ static int tegra_dc_release(struct inode *inode, struct file *filp)
 	struct tegra_dc_ext_user *user = filp->private_data;
 	struct tegra_dc_ext *ext = user->ext;
 	unsigned int i;
+	unsigned long int windows = 0;
 
 	for (i = 0; i < DC_N_WINDOWS; i++) {
-		if (ext->win[i].user == user)
+		if (ext->win[i].user == user) {
 			tegra_dc_ext_put_window(user, i);
+			windows |= BIT(i);
+		}
 	}
+
+	tegra_dc_blank(ext->dc, windows);
+	for_each_set_bit(i, &windows, DC_N_WINDOWS)
+		tegra_dc_ext_unpin_window(&ext->win[i]);
+
 	if (ext->cursor.user == user)
 		tegra_dc_ext_put_cursor(user);
 

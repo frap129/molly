@@ -5,7 +5,7 @@
  * Copyright (C) 2010 Google, Inc.
  * Author: Erik Gilling <konkers@android.com>
  *
- * Copyright (c) 2010-2012, NVIDIA CORPORATION, All rights reserved.
+ * Copyright (c) 2010-2014, NVIDIA CORPORATION, All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -45,6 +45,8 @@
 /* 29 bit offset for window clip number */
 #define CURSOR_CLIP_SHIFT_BITS(win)	(win << 29)
 #define CURSOR_CLIP_GET_WINDOW(reg)	((reg >> 29) & 3)
+
+#define BLANK_ALL	(~0)
 
 #ifndef CONFIG_TEGRA_FPGA_PLATFORM
 #define ALL_UF_INT (WIN_A_UF_INT | WIN_B_UF_INT | WIN_C_UF_INT)
