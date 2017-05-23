@@ -195,19 +195,12 @@ fail:
 static int dsi_s_wqxga_10_1_enable(struct device *dev)
 {
 	int err = 0;
-
-	if (machine_is_dalmore() || machine_is_molly())
-		err = dalmore_dsi_regulator_get(dev);
-	else if (machine_is_macallan())
-		err = macallan_dsi_regulator_get(dev);
+	err = dalmore_dsi_regulator_get(dev);
 	if (err < 0) {
 		pr_err("dsi regulator get failed\n");
 		goto fail;
 	}
-	if (machine_is_dalmore() || machine_is_molly())
-		err = dalmore_dsi_gpio_get();
-	else if (machine_is_macallan())
-		err = macallan_dsi_gpio_get();
+	err = dalmore_dsi_gpio_get();
 	if (err < 0) {
 		pr_err("dsi gpio request failed\n");
 		goto fail;
