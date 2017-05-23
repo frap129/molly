@@ -877,26 +877,6 @@ static int __init tegra_cpufreq_init(void)
 	return cpufreq_register_driver(&tegra_cpufreq_driver);
 }
 
-#if CONFIG_TEGRA_CPU_FREQ_GOVERNOR_EARLY_INIT
-static int __init tegra_cpufreq_governor_init(void)
-{
-	/*
-	 * At this point, the full range of clocks should be available
-	 * Set the CPU governor to performance for a faster boot up
-	 */
-	unsigned int i;
-	static char *start_scaling_governor = "performance";
-	for_each_online_cpu(i) {
-		if (cpufreq_set_gov(start_scaling_governor, i))
-			pr_info("Failed to set the governor to %s " \
-				"for cpu %u\n", start_scaling_governor, i);
-	}
-	return 0;
-}
-
-late_initcall_sync(tegra_cpufreq_governor_init);
-#endif
-
 static void __exit tegra_cpufreq_exit(void)
 {
 	tegra_throttle_exit();
