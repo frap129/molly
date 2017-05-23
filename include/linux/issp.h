@@ -32,7 +32,6 @@ struct issp_platform_data {
 	int blocks;
 	int security_size;
 	int version_addr;
-	int force_update;
 };
 
 #endif
